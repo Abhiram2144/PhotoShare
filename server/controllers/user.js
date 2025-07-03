@@ -1,28 +1,22 @@
 const User = require("../models/user.js");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const mongoose = require("mongoose");
 
+// ----------------- REGISTER -----------------
 const register = async (req, res) => {
   try {
     const { username, email, password } = req.body;
 
     const existingUsername = await User.findOne({ username });
     const existingEmail = await User.findOne({ email });
+
     if (existingUsername && existingEmail) {
-      return res.status(400).json({
-        success: false,
-        message: "Username and email already taken",
-      });
+      return res.status(400).json({ success: false, message: "Username and email already taken" });
     } else if (existingUsername) {
-      return res.status(400).json({
-        success: false,
-        message: "Username already taken",
-      });
+      return res.status(400).json({ success: false, message: "Username already taken" });
     } else if (existingEmail) {
-      return res.status(400).json({
-        success: false,
-        message: "Email already taken",
-      });
+      return res.status(400).json({ success: false, message: "Email already taken" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -50,8 +44,7 @@ const register = async (req, res) => {
   }
 };
 
-// @desc    Login user
-// @route   POST /api/auth/login
+// ----------------- LOGIN -----------------
 const login = async (req, res) => {
   try {
     const { usernameOrEmail, password } = req.body;
@@ -61,7 +54,7 @@ const login = async (req, res) => {
     }).select("+password");
 
     if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      return res.status(404).json({ success: false, message: "No account found with this username or email" });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
@@ -86,17 +79,26 @@ const login = async (req, res) => {
   }
 };
 
+// ----------------- GET MY PROFILE -----------------
+const getMyProfile = async (req, res) => {
+  try {
+    // console.log("req.userId: ", req.userId);
+    const user = await User.findById(req.userId).select("username email _id friends");
+    res.status(200).json({ success: true, user });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Error retrieving profile", error: err.message });
+  }
+};
+
+// ----------------- SEARCH USERS BY USERNAME -----------------
 const searchUser = async (req, res) => {
   try {
     const { username } = req.query;
-
-    if (!username) {
-      return res.status(400).json({ success: false, message: "Username query required" });
-    }
+    if (!username) return res.status(400).json({ success: false, message: "Username query required" });
 
     const users = await User.find({
       username: { $regex: new RegExp(username, "i") },
-      _id: { $ne: req.userId }, // exclude self
+      _id: { $ne: req.userId },
     }).select("username _id email");
 
     res.status(200).json({ success: true, users });
@@ -105,8 +107,7 @@ const searchUser = async (req, res) => {
   }
 };
 
-
-
+// ----------------- ADD FRIEND -----------------
 const addFriend = async (req, res) => {
   try {
     const { friendUsername } = req.body;
@@ -115,7 +116,6 @@ const addFriend = async (req, res) => {
       return res.status(400).json({ success: false, message: "Friend username is required" });
     }
 
-    // Find both users
     const user = await User.findById(req.userId);
     const friend = await User.findOne({ username: friendUsername.toLowerCase().trim() });
 
@@ -123,17 +123,14 @@ const addFriend = async (req, res) => {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    // Prevent self-friendship
     if (user._id.equals(friend._id)) {
       return res.status(400).json({ success: false, message: "You can't add yourself as a friend" });
     }
 
-    // Check if already friends
     if (user.friends.includes(friend._id)) {
       return res.status(400).json({ success: false, message: "Already connected" });
     }
 
-    // Add friend relationship (symmetric)
     user.friends.push(friend._id);
     friend.friends.push(user._id);
 
@@ -147,10 +144,16 @@ const addFriend = async (req, res) => {
   }
 };
 
-
+// ----------------- GET USER BY ID -----------------
 const getUserById = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select("username email _id");
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: "Invalid user ID format" });
+    }
+
+    const user = await User.findById(id).select("username email _id");
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
     res.status(200).json({ success: true, user });
@@ -159,20 +162,37 @@ const getUserById = async (req, res) => {
   }
 };
 
+// ----------------- UPDATE USER -----------------
 const updateUser = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+    const { id } = req.params;
 
-    const updatedUser = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const allowedFields = ["username", "email", "profilePicture"];
+    const updates = Object.keys(req.body);
+
+    const isValidUpdate = updates.every((field) => allowedFields.includes(field));
+    if (!isValidUpdate) {
+      return res.status(400).json({ success: false, message: "Invalid update fields" });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(id, req.body, { new: true }).select("-password");
+    if (!updatedUser) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
     res.status(200).json({ success: true, user: updatedUser });
   } catch (err) {
     res.status(500).json({ success: false, message: "Error updating user", error: err.message });
   }
 };
 
+// ----------------- EXPORT ALL -----------------
 module.exports = {
   register,
   login,
-  getUserById
+  getMyProfile,
+  searchUser,
+  addFriend,
+  getUserById,
+  updateUser,
 };

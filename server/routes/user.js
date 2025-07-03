@@ -1,16 +1,17 @@
 const express = require("express");
-const { register, login, getUserById } = require("../controllers/user");
+const { register, login, getUserById, getMyProfile } = require("../controllers/user");
+const { checkAuth } = require("../middleware/authentication");
 
 const router = express.Router();
 
-// User registration and login
+// 🔓 Public routes
 router.post("/signup", register);
 router.post("/login", login);
 
-// Get user by ID (for search/invite or displaying user info)
-router.get("/:id", getUserById);
+// 🔐 Authenticated routes
+router.get("/me", checkAuth, getMyProfile); // Get current logged-in user
+router.get("/:id", checkAuth, getUserById); // Get any user by ID (optional)
 
-// Basic route check
 router.get("/", (req, res) => {
   res.send("User route working ✅");
 });
