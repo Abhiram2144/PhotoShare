@@ -10,7 +10,7 @@ import SignUp from "./pages/SignUp";
 import ChatHome from "./pages/ChatHome";
 // import SingleChat from "./pages/SingleChat";
 // import SearchFriend from "./pages/SearchFriend";
-// import Profile from "./pages/Profile";
+import Profile from "./pages/Profile";
 
 function App() {
   return (
@@ -24,8 +24,8 @@ function App() {
           {/* Protected Routes */}
           <Route path="/chatHome" element={<PrivateRoute><ChatHome /></PrivateRoute>} />
           {/* <Route path="/chat/:id" element={<PrivateRoute><SingleChat /></PrivateRoute>} />
-          <Route path="/search" element={<PrivateRoute><SearchFriend /></PrivateRoute>} />
-          <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} /> */}
+          <Route path="/search" element={<PrivateRoute><SearchFriend /></PrivateRoute>} /> */}
+          <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
         </Routes>
       </BrowserRouter>
 

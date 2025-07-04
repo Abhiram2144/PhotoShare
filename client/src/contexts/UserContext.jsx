@@ -1,5 +1,6 @@
 import React, { createContext, useEffect, useState } from 'react';
 import {jwtDecode} from 'jwt-decode';
+import axios from '../components/api';
 
 export const UserContext = createContext();
 
@@ -30,6 +31,15 @@ const UserContextProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
+  const refreshUser = async () => {
+  try {
+    const { data } = await axios.get("/auth/me", getAuthHeader());
+    setUser(data.user); // this must include profileImage!
+    console.log("Refreshed user:", data.user);
+  } catch (err) {
+    console.error("Failed to refresh user:", err);
+  }
+};
   // Login handler
   const login = (userData) => {
     setUser(userData);
@@ -56,7 +66,7 @@ const UserContextProvider = ({ children }) => {
   if (loading) return <div className="text-center mt-10 text-gray-500">Loading...</div>;
 
   return (
-    <UserContext.Provider value={{ user, token, login, logout, setUser, getAuthHeader }}>
+    <UserContext.Provider value={{ user, token, login, logout, setUser, getAuthHeader, refreshUser }}>
       {children}
     </UserContext.Provider>
   );

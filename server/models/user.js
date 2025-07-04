@@ -37,7 +37,7 @@ const userSchema = new mongoose.Schema({
     type: String, // Optional — Cloudinary URL
     default: ""
   },
-
+profileImageId: { type: String },
   createdAt: {
     type: Date,
     default: Date.now

@@ -2,7 +2,7 @@ const User = require("../models/user.js");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
-
+const imagekit = require("../utils/imagekit");
 // ----------------- REGISTER -----------------
 const register = async (req, res) => {
   try {
@@ -25,6 +25,7 @@ const register = async (req, res) => {
       username,
       email,
       password: hashedPassword,
+      profileImage: "https://ik.imagekit.io/abhiram/kaiser.jpg?updatedAt=1751644727052"
     });
 
     const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
@@ -37,6 +38,7 @@ const register = async (req, res) => {
         id: newUser._id,
         username: newUser.username,
         email: newUser.email,
+        profileImage: newUser.profileImage
       },
     });
   } catch (err) {
@@ -72,6 +74,7 @@ const login = async (req, res) => {
         id: user._id,
         username: user.username,
         email: user.email,
+        profileImage: user.profileImage,
       },
     });
   } catch (err) {
@@ -83,13 +86,49 @@ const login = async (req, res) => {
 const getMyProfile = async (req, res) => {
   try {
     // console.log("req.userId: ", req.userId);
-    const user = await User.findById(req.userId).select("username email _id friends");
+    const user = await User.findById(req.userId).select("-password");
     res.status(200).json({ success: true, user });
   } catch (err) {
     res.status(500).json({ success: false, message: "Error retrieving profile", error: err.message });
   }
 };
 
+const updateProfileImage = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({ success: false, message: "No image provided" });
+    }
+
+    const user = await User.findById(userId);
+
+    // Step 1: Delete the old image if it exists
+    if (user.profileImageId) {
+      try {
+        await imagekit.deleteFile(user.profileImageId);
+      } catch (err) {
+        console.warn("Failed to delete previous image:", err.message);
+      }
+    }
+
+    // Step 2: Upload new image
+    const uploadedImage = await imagekit.upload({
+      file: file.buffer,
+      fileName: `profile_${userId}_${Date.now()}`,
+    });
+
+    // Step 3: Update user with new image and fileId
+    user.profileImage = uploadedImage.url;
+    user.profileImageId = uploadedImage.fileId;
+    await user.save();
+
+    res.status(200).json({ success: true, message: "Profile picture updated", user });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Image upload failed", error: err.message });
+  }
+};
 // ----------------- SEARCH USERS BY USERNAME -----------------
 const searchUser = async (req, res) => {
   try {
@@ -112,10 +151,10 @@ const sendFriendRequest = async (req, res) => {
   try {
     const { friendId } = req.body;
     if (!friendId) return res.status(400).json({ success: false, message: "Friend ID required" });
-    
+
     const user = await User.findById(req.userId);
     const friend = await User.findById(friendId);
-    if(user === friend) return res.status(400).json({ message: "You cannot send a friend request to yourself" });
+    if (user === friend) return res.status(400).json({ message: "You cannot send a friend request to yourself" });
 
     if (!user || !friend) return res.status(404).json({ message: "User not found" });
     if (user.friends.includes(friend._id)) return res.status(400).json({ message: "Already friends" });
@@ -143,7 +182,7 @@ const acceptFriendRequest = async (req, res) => {
 
   const user = await User.findById(req.userId);
   const requester = await User.findById(requesterId);
-  if(user === requester) return res.status(400).json({ message: "You cannot accept a friend request from yourself" });
+  if (user === requester) return res.status(400).json({ message: "You cannot accept a friend request from yourself" });
 
   if (!user || !requester) return res.status(404).json({ message: "User not found" });
 
@@ -166,7 +205,7 @@ const rejectFriendRequest = async (req, res) => {
 
   const user = await User.findById(req.userId);
   const requester = await User.findById(requesterId);
-  if(user === requester) return res.status(400).json({ message: "You cannot reject a friend request from yourself" });
+  if (user === requester) return res.status(400).json({ message: "You cannot reject a friend request from yourself" });
 
   if (!user || !requester) return res.status(404).json({ message: "User not found" });
 
@@ -197,6 +236,14 @@ const getUserRelations = async (req, res) => {
   }
 };
 
+const getFriends = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).populate("friends", "username email _id profileImage");
+    res.status(200).json({ success: true, friends: user.friends });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Failed to get friends", error: err.message });
+  }
+}
 // ----------------- GET USER BY ID -----------------
 const getUserById = async (req, res) => {
   try {
@@ -239,6 +286,30 @@ const updateUser = async (req, res) => {
   }
 };
 
+const removeFriend = async (req, res) => {
+  try {
+    const { friendId } = req.params;
+
+    const user = await User.findById(req.userId);
+    const friend = await User.findById(friendId);
+    if (!user || !friend) return res.status(404).json({
+      success: false,
+      message: "User or friend not found"
+    });
+    if (user.friends.includes(friendId)) {
+      user.friends = user.friends.filter(friend =>
+        friend.toString() !== friendId
+      );
+      await user.save();
+      res.status(200).json({ success: true, message: "Friend removed" });
+    } else {
+      res.status(400).json({ success: false, message: "Friend not found in user friends list" });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Error removing friend", error: err.message });
+  }
+
+}
 // ----------------- EXPORT ALL -----------------
 module.exports = {
   register,
@@ -250,5 +321,8 @@ module.exports = {
   rejectFriendRequest,
   acceptFriendRequest,
   sendFriendRequest,
-  getUserRelations
+  getUserRelations,
+  getFriends,
+  updateProfileImage,
+  removeFriend
 };

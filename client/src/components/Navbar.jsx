@@ -22,7 +22,8 @@ const Navbar = () => {
 
       {/* Auth Buttons */}
       {user ? (
-        <button
+        <div className="flex gap-4">
+          <button
           onClick={() => {
             logout();
             navigate("/");
@@ -30,7 +31,12 @@ const Navbar = () => {
           className="text-sm font-medium text-red-600 hover:underline cursor-pointer"
         >
           Logout
+        </button > 
+        <button onClick={() => navigate("/chatHome")} className="text-sm font-medium cursor-pointer">
+          Chats
         </button>
+        </div>
+
       ) : (
         <>
           {!isLoginPage && !isRegisterPage && (

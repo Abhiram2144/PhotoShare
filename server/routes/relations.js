@@ -7,6 +7,8 @@ const {
   acceptFriendRequest,
   rejectFriendRequest,
   getUserRelations,
+  getFriends,
+  removeFriend,
 } = require("../controllers/user");
 
 // All routes below are protected
@@ -23,5 +25,7 @@ router.post("/accept-request", acceptFriendRequest);
 
 // Reject a friend request
 router.post("/reject-request", rejectFriendRequest);
+router.delete("/remove/:friendId", checkAuth, removeFriend);
+router.get("/friends", getFriends);
 
 module.exports = router;
