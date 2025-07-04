@@ -1,5 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import Navbar from "../components/Navbar";
 
 const Home = () => {
   const navigate = useNavigate();
@@ -8,7 +9,7 @@ const Home = () => {
     <div className="min-h-screen flex flex-col justify-between items-center bg-white px-4 py-6">
       
       {/* Header */}
-      <div className="w-full flex justify-between items-center">
+      {/* <div className="w-full flex justify-between items-center">
         <h1 className="text-2xl font-semibold text-gray-800">Photo share</h1>
         <button 
           onClick={() => navigate("/login")}
@@ -16,7 +17,9 @@ const Home = () => {
         >
           Sign in
         </button>
-      </div>
+      </div> */}
+
+      <Navbar/>
 
       {/* Main Content */}
       <div className="flex flex-col items-center mt-20">

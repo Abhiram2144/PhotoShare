@@ -1,5 +1,5 @@
 import React, { createContext, useEffect, useState } from 'react';
-import jwt_decode from 'jwt-decode';
+import {jwtDecode} from 'jwt-decode';
 
 export const UserContext = createContext();
 
@@ -15,7 +15,7 @@ const UserContextProvider = ({ children }) => {
 
     if (storedUser && storedToken) {
       try {
-        const decoded = jwt_decode(storedToken);
+        const decoded = jwtDecode(storedToken);
         if (decoded.exp * 1000 < Date.now()) {
           logout(); // Token expired
         } else {

@@ -4,8 +4,13 @@ import UserContextProvider from "./contexts/UserContext"
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import PrivateRoute from "./components/PrivateRoute";
-
-import { Home, Login, SignUp, ChatHome, SingleChat, SearchFriend, Profile } from './pages'
+import Home from "./pages/Home";
+import Login from "./pages/Login";
+import SignUp from "./pages/SignUp";
+import ChatHome from "./pages/ChatHome";
+// import SingleChat from "./pages/SingleChat";
+// import SearchFriend from "./pages/SearchFriend";
+// import Profile from "./pages/Profile";
 
 function App() {
   return (
@@ -14,13 +19,13 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<SignUp />} />
+          <Route path="/signup" element={<SignUp />} />
 
           {/* Protected Routes */}
-          <Route path="/chat" element={<PrivateRoute><ChatHome /></PrivateRoute>} />
-          <Route path="/chat/:id" element={<PrivateRoute><SingleChat /></PrivateRoute>} />
+          <Route path="/chatHome" element={<PrivateRoute><ChatHome /></PrivateRoute>} />
+          {/* <Route path="/chat/:id" element={<PrivateRoute><SingleChat /></PrivateRoute>} />
           <Route path="/search" element={<PrivateRoute><SearchFriend /></PrivateRoute>} />
-          <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
+          <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} /> */}
         </Routes>
       </BrowserRouter>
 
