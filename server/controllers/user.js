@@ -270,7 +270,6 @@ const getFriends = async (req, res) => {
 const getUserById = async (req, res) => {
   try {
     const { id } = req.params;
-    console.log("id: ", id);
     
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ success: false, message: "Invalid user ID format" });

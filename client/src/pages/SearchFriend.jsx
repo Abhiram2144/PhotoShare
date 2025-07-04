@@ -76,7 +76,7 @@ const SearchFriend = () => {
                   </div>
                 </div>
                 <Link
-                  to={`auth/user/${user.id}`}
+                  to={`/user/${user._id}`}
                   className="text-sm text-blue-600 hover:underline"
                 >
                   View Profile

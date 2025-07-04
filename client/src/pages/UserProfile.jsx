@@ -14,7 +14,7 @@ const UserProfile = () => {
     const navigate = useNavigate();
     const fetchUserProfile = async () => {
         try {
-            const res = await axios.get(`/auth/${id}`, getAuthHeader());
+            const res = await axios.get(`/auth/user/${id}`, getAuthHeader());
             setTargetUser(res.data.user);
         } catch (err) {
             toast.error("User not found");

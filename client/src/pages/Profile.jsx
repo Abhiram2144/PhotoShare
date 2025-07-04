@@ -1,15 +1,16 @@
-import React, { useContext, useEffect, useState, useRef } from "react";
+// ... (imports stay the same)
+
+import { useContext, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { UserContext } from "../contexts/UserContext";
+import axios from "axios";
 import Navbar from "../components/Navbar";
-import axios from "../components/api";
-import { toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-import { Link, useNavigate } from 'react-router-dom';
 
 const Profile = () => {
   const { user, getAuthHeader, refreshUser } = useContext(UserContext);
   const [showModal, setShowModal] = useState(false);
   const [friends, setFriends] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
   const [search, setSearch] = useState("");
   const [removing, setRemoving] = useState(null);
   const [showImageModal, setShowImageModal] = useState(false);
@@ -20,7 +21,10 @@ const Profile = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (showModal) fetchFriends();
+    if (showModal) {
+      fetchFriends();
+      fetchPendingRequests();
+    }
   }, [showModal]);
 
   const fetchFriends = async () => {
@@ -29,6 +33,15 @@ const Profile = () => {
       setFriends(data.friends || []);
     } catch (err) {
       console.error("Failed to fetch friends:", err);
+    }
+  };
+
+  const fetchPendingRequests = async () => {
+    try {
+      const { data } = await axios.get(`/relations/pending`, getAuthHeader());
+      setPendingRequests(data.pending || []);
+    } catch (err) {
+      console.error("Failed to fetch pending requests:", err);
     }
   };
 
@@ -45,7 +58,7 @@ const Profile = () => {
                   .delete(`/relations/remove/${friendId}`, getAuthHeader())
                   .then(() => {
                     setFriends((prev) => prev.filter(f => f._id !== friendId));
-                    toast.success(`${friendUsername} removed from your friends.`);
+                    toast.success(`${friendUsername} removed.`);
                   })
                   .catch(() => toast.error("Failed to remove friend."));
                 closeToast();
@@ -59,6 +72,27 @@ const Profile = () => {
       ),
       { autoClose: false }
     );
+  };
+
+  const handleAccept = async (requesterId) => {
+    try {
+      await axios.post("/relations/accept-request", { requesterId }, getAuthHeader());
+      toast.success("Friend request accepted.");
+      fetchFriends();
+      setPendingRequests(prev => prev.filter(req => req._id !== requesterId));
+    } catch (err) {
+      toast.error("Failed to accept request.");
+    }
+  };
+
+  const handleReject = async (requesterId) => {
+    try {
+      await axios.post("/relations/reject-request", { requesterId }, getAuthHeader());
+      toast.info("Friend request rejected.");
+      setPendingRequests(prev => prev.filter(req => req._id !== requesterId));
+    } catch (err) {
+      toast.error("Failed to reject request.");
+    }
   };
 
   const handleImageUpload = async () => {
@@ -83,7 +117,7 @@ const Profile = () => {
 
   const handleUsernameUpdate = async () => {
     try {
-      const res = await axios.put("/auth/update", { username: newUsername }, getAuthHeader());
+      await axios.put("/auth/update", { username: newUsername }, getAuthHeader());
       toast.success("Username updated!");
       setEditUsernameModal(false);
       refreshUser();
@@ -99,7 +133,6 @@ const Profile = () => {
   return (
     <div className="min-h-screen bg-white">
       <Navbar />
-
       <div className="p-6 flex flex-col items-center">
         <div className="relative w-24 h-24 mb-4 cursor-pointer" onClick={() => setShowImageModal(true)}>
           <img
@@ -122,6 +155,7 @@ const Profile = () => {
         </button>
       </div>
 
+      {/* Modals */}
       {editUsernameModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4">
           <div className="bg-white p-6 rounded-md shadow-md w-full max-w-md relative">
@@ -152,10 +186,11 @@ const Profile = () => {
               placeholder="Search friends..."
               className="w-full border border-gray-300 rounded-md px-3 py-2 mb-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+
             {filteredFriends.length === 0 ? (
               <p className="text-sm text-gray-500 text-center">No friends found.</p>
             ) : (
-              <ul className="space-y-3">
+              <ul className="space-y-3 mb-6">
                 {filteredFriends.map(friend => (
                   <li key={friend._id} className="flex items-center justify-between p-2 bg-gray-100 rounded-md">
                     <div className="flex items-center gap-3">
@@ -179,6 +214,44 @@ const Profile = () => {
                 ))}
               </ul>
             )}
+
+            {/* Pending Requests Section */}
+            <h4 className="text-md font-semibold mt-6 mb-2 border-t pt-4 border-gray-200 text-gray-800">
+              Pending Friend Requests
+            </h4>
+            {pendingRequests.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center">No pending requests.</p>
+            ) : (
+              <ul className="space-y-3">
+                {pendingRequests.map((req) => (
+                  <li key={req._id} className="flex items-center justify-between p-2 bg-yellow-50 rounded-md">
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={req.profileImage || "/default-avatar.png"}
+                        alt="Request"
+                        className="w-10 h-10 rounded-full object-cover"
+                      />
+                      <span className="text-sm font-medium">{req.username}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleAccept(req._id)}
+                        className="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600"
+                      >
+                        Accept
+                      </button>
+                      <button
+                        onClick={() => handleReject(req._id)}
+                        className="text-xs bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+
             <button
               onClick={() => setShowModal(false)}
               className="absolute top-2 right-3 text-gray-500 hover:text-gray-700 text-xl"
@@ -189,6 +262,7 @@ const Profile = () => {
         </div>
       )}
 
+      {/* Image Upload Modal */}
       {showImageModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4">
           <div className="bg-white p-6 rounded-md shadow-md w-full max-w-md relative">
