@@ -29,6 +29,10 @@ const userSchema = new mongoose.Schema({
     }
   ],
 
+  pendingRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // received
+  sentRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],    // sent
+  friends: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+
   profileImage: {
     type: String, // Optional — Cloudinary URL
     default: ""

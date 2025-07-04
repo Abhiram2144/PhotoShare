@@ -108,39 +108,92 @@ const searchUser = async (req, res) => {
 };
 
 // ----------------- ADD FRIEND -----------------
-const addFriend = async (req, res) => {
+const sendFriendRequest = async (req, res) => {
   try {
-    const { friendUsername } = req.body;
-
-    if (!friendUsername) {
-      return res.status(400).json({ success: false, message: "Friend username is required" });
-    }
-
+    const { friendId } = req.body;
+    if (!friendId) return res.status(400).json({ success: false, message: "Friend ID required" });
+    
     const user = await User.findById(req.userId);
-    const friend = await User.findOne({ username: friendUsername.toLowerCase().trim() });
+    const friend = await User.findById(friendId);
+    if(user === friend) return res.status(400).json({ message: "You cannot send a friend request to yourself" });
 
-    if (!user || !friend) {
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
+    if (!user || !friend) return res.status(404).json({ message: "User not found" });
+    if (user.friends.includes(friend._id)) return res.status(400).json({ message: "Already friends" });
+    if (user.sentRequests.includes(friend._id)) return res.status(400).json({ message: "Request already sent" });
+    if (user.pendingRequests.includes(friend._id)) return res.status(400).json({ message: "They sent you a request. Accept it instead." });
 
-    if (user._id.equals(friend._id)) {
-      return res.status(400).json({ success: false, message: "You can't add yourself as a friend" });
-    }
-
-    if (user.friends.includes(friend._id)) {
-      return res.status(400).json({ success: false, message: "Already connected" });
-    }
-
-    user.friends.push(friend._id);
-    friend.friends.push(user._id);
+    user.sentRequests.push(friend._id);
+    friend.pendingRequests.push(user._id);
 
     await user.save();
     await friend.save();
 
-    res.status(200).json({ success: true, message: `You are now friends with ${friend.username}` });
+    res.status(200).json({ message: "Friend request sent" });
+  }
+  catch (err) {
+    res.status(500).json({
+      success: false, message: "Error sending friend request",
+      error: err.message
+    });
+  }
+}
 
+const acceptFriendRequest = async (req, res) => {
+  const { requesterId } = req.body;
+
+  const user = await User.findById(req.userId);
+  const requester = await User.findById(requesterId);
+  if(user === requester) return res.status(400).json({ message: "You cannot accept a friend request from yourself" });
+
+  if (!user || !requester) return res.status(404).json({ message: "User not found" });
+
+  // Remove pending & sent
+  user.pendingRequests = user.pendingRequests.filter(id => id.toString() !== requesterId);
+  requester.sentRequests = requester.sentRequests.filter(id => id.toString() !== req.userId);
+
+  // Add to friends
+  user.friends.push(requester._id);
+  requester.friends.push(user._id);
+
+  await user.save();
+  await requester.save();
+
+  res.status(200).json({ message: `You are now friends with ${requester.username}` });
+};
+
+const rejectFriendRequest = async (req, res) => {
+  const { requesterId } = req.body;
+
+  const user = await User.findById(req.userId);
+  const requester = await User.findById(requesterId);
+  if(user === requester) return res.status(400).json({ message: "You cannot reject a friend request from yourself" });
+
+  if (!user || !requester) return res.status(404).json({ message: "User not found" });
+
+  user.pendingRequests = user.pendingRequests.filter(id => id.toString() !== requesterId);
+  requester.sentRequests = requester.sentRequests.filter(id => id.toString() !== req.userId);
+
+  await user.save();
+  await requester.save();
+
+  res.status(200).json({ message: "Friend request rejected" });
+};
+
+const getUserRelations = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId)
+      .populate("friends", "username email _id")
+      .populate("sentRequests", "username email _id")
+      .populate("pendingRequests", "username email _id");
+
+    res.status(200).json({
+      success: true,
+      friends: user.friends,
+      sentRequests: user.sentRequests,
+      pendingRequests: user.pendingRequests,
+    });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to add friend", error: err.message });
+    res.status(500).json({ success: false, message: "Failed to get relations", error: err.message });
   }
 };
 
@@ -192,7 +245,10 @@ module.exports = {
   login,
   getMyProfile,
   searchUser,
-  addFriend,
   getUserById,
   updateUser,
+  rejectFriendRequest,
+  acceptFriendRequest,
+  sendFriendRequest,
+  getUserRelations
 };
