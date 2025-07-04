@@ -4,6 +4,7 @@ import Navbar from "../components/Navbar";
 import axios from "../components/api";
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { Link, useNavigate } from 'react-router-dom';
 
 const Profile = () => {
   const { user, getAuthHeader, refreshUser } = useContext(UserContext);
@@ -13,7 +14,10 @@ const Profile = () => {
   const [removing, setRemoving] = useState(null);
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [editUsernameModal, setEditUsernameModal] = useState(false);
+  const [newUsername, setNewUsername] = useState("");
   const fileInputRef = useRef();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (showModal) fetchFriends();
@@ -63,7 +67,7 @@ const Profile = () => {
     formData.append("image", selectedImage);
 
     try {
-      const { data } = await axios.post("auth/update-profile-image", formData, {
+      await axios.post("auth/update-profile-image", formData, {
         headers: {
           ...getAuthHeader().headers,
           "Content-Type": "multipart/form-data"
@@ -74,6 +78,17 @@ const Profile = () => {
       refreshUser();
     } catch (err) {
       toast.error("Failed to update profile image");
+    }
+  };
+
+  const handleUsernameUpdate = async () => {
+    try {
+      const res = await axios.put("/auth/update", { username: newUsername }, getAuthHeader());
+      toast.success("Username updated!");
+      setEditUsernameModal(false);
+      refreshUser();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to update username");
     }
   };
 
@@ -93,7 +108,10 @@ const Profile = () => {
             className="w-full h-full object-cover rounded-full border border-gray-300"
           />
         </div>
-        <h2 className="text-xl font-bold text-gray-800">{user?.username}</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-xl font-bold text-gray-800">{user?.username}</h2>
+          <button onClick={() => setEditUsernameModal(true)} className="text-blue-600 hover:underline text-sm">✎</button>
+        </div>
         <p className="text-sm text-gray-500">{user?.email}</p>
 
         <button
@@ -104,12 +122,29 @@ const Profile = () => {
         </button>
       </div>
 
-      {/* Friends Modal */}
+      {editUsernameModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4">
+          <div className="bg-white p-6 rounded-md shadow-md w-full max-w-md relative">
+            <h3 className="text-lg font-bold mb-4 text-center">Update Username</h3>
+            <input
+              type="text"
+              value={newUsername}
+              onChange={(e) => setNewUsername(e.target.value)}
+              className="w-full border px-3 py-2 rounded-md mb-4"
+              placeholder="New username"
+            />
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setEditUsernameModal(false)} className="text-gray-600">Cancel</button>
+              <button onClick={handleUsernameUpdate} className="bg-blue-600 text-white px-4 py-2 rounded-md">Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4">
           <div className="bg-white w-full max-w-sm rounded-lg shadow-lg p-4 relative max-h-[80vh] overflow-y-auto">
             <h3 className="text-lg font-bold mb-3 text-center">Your Friends</h3>
-
             <input
               type="text"
               value={search}
@@ -117,7 +152,6 @@ const Profile = () => {
               placeholder="Search friends..."
               className="w-full border border-gray-300 rounded-md px-3 py-2 mb-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-
             {filteredFriends.length === 0 ? (
               <p className="text-sm text-gray-500 text-center">No friends found.</p>
             ) : (
@@ -130,7 +164,9 @@ const Profile = () => {
                         alt="Profile"
                         className="w-10 h-10 rounded-full object-cover"
                       />
-                      <span className="text-sm text-gray-800">{friend.username}</span>
+                      <Link to={`/${friend._id}`} className="text-sm text-blue-600 hover:underline">
+                        {friend.username}
+                      </Link>
                     </div>
                     <button
                       onClick={() => handleRemove(friend._id, friend.username)}
@@ -143,7 +179,6 @@ const Profile = () => {
                 ))}
               </ul>
             )}
-
             <button
               onClick={() => setShowModal(false)}
               className="absolute top-2 right-3 text-gray-500 hover:text-gray-700 text-xl"
@@ -154,7 +189,6 @@ const Profile = () => {
         </div>
       )}
 
-      {/* Image Edit Modal */}
       {showImageModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4">
           <div className="bg-white p-6 rounded-md shadow-md w-full max-w-md relative">
@@ -166,16 +200,10 @@ const Profile = () => {
               onChange={(e) => setSelectedImage(e.target.files[0])}
             />
             <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowImageModal(false)}
-                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
-              >
+              <button onClick={() => setShowImageModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">
                 Cancel
               </button>
-              <button
-                onClick={handleImageUpload}
-                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
-              >
+              <button onClick={handleImageUpload} className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700">
                 Save
               </button>
             </div>

@@ -9,8 +9,9 @@ import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 import ChatHome from "./pages/ChatHome";
 // import SingleChat from "./pages/SingleChat";
-// import SearchFriend from "./pages/SearchFriend";
+import SearchFriend from "./pages/SearchFriend";
 import Profile from "./pages/Profile";
+import UserProfile from "./pages/UserProfile";
 
 function App() {
   return (
@@ -23,9 +24,10 @@ function App() {
 
           {/* Protected Routes */}
           <Route path="/chatHome" element={<PrivateRoute><ChatHome /></PrivateRoute>} />
-          {/* <Route path="/chat/:id" element={<PrivateRoute><SingleChat /></PrivateRoute>} />
-          <Route path="/search" element={<PrivateRoute><SearchFriend /></PrivateRoute>} /> */}
+          {/* <Route path="/chat/:id" element={<PrivateRoute><SingleChat /></PrivateRoute>} /> */}
+          <Route path="/searchFriend" element={<PrivateRoute><SearchFriend /></PrivateRoute>} />
           <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
+          <Route path="/user/:id" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
         </Routes>
       </BrowserRouter>
 

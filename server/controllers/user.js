@@ -130,21 +130,43 @@ const updateProfileImage = async (req, res) => {
   }
 };
 // ----------------- SEARCH USERS BY USERNAME -----------------
+
+
 const searchUser = async (req, res) => {
+  console.log("reached searchUser");
   try {
-    const { username } = req.query;
-    if (!username) return res.status(400).json({ success: false, message: "Username query required" });
+    // const { username } = req.query;
+    const currentUserId = req.userId; // from middleware
+    console.log("currentUserId: ", currentUserId);
+    
+    const username = req.query.username?.trim();
+    console.log("username: ", username);
+    
+if (!username || username.length < 2) {
+  return res.status(400).json({
+    success: false,
+    message: "Username query required (min 2 characters)"
+  });
+}
 
     const users = await User.find({
       username: { $regex: new RegExp(username, "i") },
-      _id: { $ne: req.userId },
-    }).select("username _id email");
+      _id: { $ne: currentUserId } // exclude self
+    }).select("username _id email profileImage");
 
-    res.status(200).json({ success: true, users });
+    res.status(200).json({
+      success: true,
+      users
+    });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Search failed", error: err.message });
+    res.status(500).json({
+      success: false,
+      message: "Search failed",
+      error: err.message
+    });
   }
 };
+
 
 // ----------------- ADD FRIEND -----------------
 const sendFriendRequest = async (req, res) => {
@@ -248,12 +270,13 @@ const getFriends = async (req, res) => {
 const getUserById = async (req, res) => {
   try {
     const { id } = req.params;
-
+    console.log("id: ", id);
+    
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ success: false, message: "Invalid user ID format" });
     }
 
-    const user = await User.findById(id).select("username email _id");
+    const user = await User.findById(id).select("username email friends profileImage");
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
     res.status(200).json({ success: true, user });
@@ -262,10 +285,21 @@ const getUserById = async (req, res) => {
   }
 };
 
+// GET /auth/all
+const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find({ _id: { $ne: req.userId } }).select("username _id email profileImage");
+    res.status(200).json({ success: true, users });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Failed to get users", error: err.message });
+  }
+};
+
+
 // ----------------- UPDATE USER -----------------
 const updateUser = async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = req.userId;
 
     const allowedFields = ["username", "email", "profilePicture"];
     const updates = Object.keys(req.body);
@@ -273,6 +307,14 @@ const updateUser = async (req, res) => {
     const isValidUpdate = updates.every((field) => allowedFields.includes(field));
     if (!isValidUpdate) {
       return res.status(400).json({ success: false, message: "Invalid update fields" });
+    }
+
+    const username = req.body.username;
+    if(username) {
+      const existingUser = await User.findOne({ username });
+      if (existingUser && existingUser._id.toString() !== id) {
+        return res.status(400).json({ success: false, message: "Username already exists" });
+      }
     }
 
     const updatedUser = await User.findByIdAndUpdate(id, req.body, { new: true }).select("-password");
@@ -324,5 +366,6 @@ module.exports = {
   getUserRelations,
   getFriends,
   updateProfileImage,
-  removeFriend
+  removeFriend,
+  getAllUsers
 };
