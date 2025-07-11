@@ -27,8 +27,7 @@ const SearchFriend = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      console.log("query: ", query);
-      console.log(`/auth/search?username=${query}`)
+
       const res = await axios.get(`/auth/user/searchFriend/search?username=${query}`, getAuthHeader());
       setUsers(res.data.users);
     } catch (err) {

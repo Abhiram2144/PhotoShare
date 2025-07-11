@@ -9,7 +9,7 @@ const socketIo = require("socket.io");
 const authrouter = require('./routes/user');
 const relationRouter = require('./routes/relations');
 
-const server = http.createServer(app); // for Socket.IO
+const server = http.createServer(app);
 
 // === SOCKET.IO SETUP ===
 const io = socketIo(server, {
@@ -20,27 +20,50 @@ const io = socketIo(server, {
   },
 });
 
-// Global socket map (optional for tracking)
 const connectedUsers = new Map();
 
 io.on("connection", (socket) => {
   console.log("🟢 New client connected:", socket.id);
 
-  socket.on("join", (userId) => {
+  io.on("connection", (socket) => {
+  socket.onAny((event, ...args) => {
+    console.log(`⚡️ Received event: ${event}`, args);
+  });
+});
+  // Register socket to userId
+  socket.on("register", (userId) => {
     socket.join(userId);
     connectedUsers.set(userId, socket.id);
-    console.log(`User ${userId} joined their room`);
+    console.log(`📥 User ${userId} joined their socket room`);
   });
 
+  // Friend request sent
+  socket.on("send_friend_request", ({ to, from }) => {
+  io.to(to).emit("friendRequestReceived", from);  // ✅ matches frontend
+});
+
+socket.on("accept_friend_request", ({ to, from }) => {
+  io.to(to).emit("requestAccepted", from); // ✅ now matches frontend
+});
+
+socket.on("removed_friend", ({ to, from }) => {
+  io.to(to).emit("friendRemoved", from); // ✅ matches frontend
+});
+
+  // Image send (already in your code)
   socket.on("sendImage", ({ to, image }) => {
     console.log(`📤 Sending image to ${to}`);
     io.to(to).emit("receiveImage", { from: socket.id, image });
   });
 
+  // Disconnect logic
   socket.on("disconnect", () => {
     console.log("🔴 Client disconnected:", socket.id);
-    for (let [uid, sid] of connectedUsers) {
-      if (sid === socket.id) connectedUsers.delete(uid);
+    for (let [uid, sid] of connectedUsers.entries()) {
+      if (sid === socket.id) {
+        connectedUsers.delete(uid);
+        break;
+      }
     }
   });
 });
@@ -48,6 +71,13 @@ io.on("connection", (socket) => {
 // === MIDDLEWARES ===
 app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
 app.use(express.json());
+
+// Inject IO to request object for route-level access (already good)
+app.use((req, res, next) => {
+  req.io = io;
+  next();
+});
+app.set("io", io);
 
 // === ROUTES ===
 app.use("/api/auth", authrouter);
@@ -58,7 +88,7 @@ app.get("/", (req, res) => {
   res.send("Hello World!");
 });
 
-// === DATABASE + SERVER START ===
+// === DB + SERVER START ===
 server.listen(8000, () => {
   console.log("🚀 Server running on port 8000");
   mongoose.connect(`mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.ucc4fkx.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`)

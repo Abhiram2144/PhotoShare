@@ -87,12 +87,29 @@ const getMyProfile = async (req, res) => {
   try {
     // console.log("req.userId: ", req.userId);
     const user = await User.findById(req.userId).select("-password");
-    res.status(200).json({ success: true, user });
+    res.status(200).json({ success: true, user: user });
   } catch (err) {
     res.status(500).json({ success: false, message: "Error retrieving profile", error: err.message });
   }
 };
 
+const getPendingRequests = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).populate({
+      path: 'pendingRequests',
+      select: 'username email profileImage'  // what info to return per requester
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({ pending: user.pendingRequests });
+  } catch (err) {
+    console.error("Error fetching pending requests:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
 const updateProfileImage = async (req, res) => {
   try {
     const userId = req.userId;
@@ -133,21 +150,19 @@ const updateProfileImage = async (req, res) => {
 
 
 const searchUser = async (req, res) => {
-  console.log("reached searchUser");
+
   try {
     // const { username } = req.query;
     const currentUserId = req.userId; // from middleware
-    console.log("currentUserId: ", currentUserId);
-    
+
     const username = req.query.username?.trim();
-    console.log("username: ", username);
-    
-if (!username || username.length < 2) {
-  return res.status(400).json({
-    success: false,
-    message: "Username query required (min 2 characters)"
-  });
-}
+
+    if (!username || username.length < 2) {
+      return res.status(400).json({
+        success: false,
+        message: "Username query required (min 2 characters)"
+      });
+    }
 
     const users = await User.find({
       username: { $regex: new RegExp(username, "i") },
@@ -176,7 +191,7 @@ const sendFriendRequest = async (req, res) => {
 
     const user = await User.findById(req.userId);
     const friend = await User.findById(friendId);
-    if (user === friend) return res.status(400).json({ message: "You cannot send a friend request to yourself" });
+    if (user._id.equals(friend._id)) return res.status(400).json({ message: "Cannot send request to self" });
 
     if (!user || !friend) return res.status(404).json({ message: "User not found" });
     if (user.friends.includes(friend._id)) return res.status(400).json({ message: "Already friends" });
@@ -189,15 +204,23 @@ const sendFriendRequest = async (req, res) => {
     await user.save();
     await friend.save();
 
+    // Emit to receiver's room
+    req.io.to(friendId).emit("friendRequestReceived", {
+  _id: user._id,
+  username: user.username,
+  profileImage: user.profileImage
+});
+
     res.status(200).json({ message: "Friend request sent" });
-  }
-  catch (err) {
+  } catch (err) {
     res.status(500).json({
-      success: false, message: "Error sending friend request",
+      success: false,
+      message: "Error sending friend request",
       error: err.message
     });
   }
-}
+};
+
 
 const acceptFriendRequest = async (req, res) => {
   const { requesterId } = req.body;
@@ -218,8 +241,12 @@ const acceptFriendRequest = async (req, res) => {
 
   await user.save();
   await requester.save();
-
-  res.status(200).json({ message: `You are now friends with ${requester.username}` });
+  req.io.to(requesterId).emit("requestAccepted", {
+  _id: user._id,
+  username: user.username,
+  profileImage: user.profileImage
+});
+  res.status(200).json({ message: `You are now friends with ${requester.username}`, friend: requester });
 };
 
 const rejectFriendRequest = async (req, res) => {
@@ -236,6 +263,7 @@ const rejectFriendRequest = async (req, res) => {
 
   await user.save();
   await requester.save();
+  req.io.to(friendId).emit("friendRemoved", user._id);
 
   res.status(200).json({ message: "Friend request rejected" });
 };
@@ -270,7 +298,7 @@ const getFriends = async (req, res) => {
 const getUserById = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ success: false, message: "Invalid user ID format" });
     }
@@ -309,7 +337,7 @@ const updateUser = async (req, res) => {
     }
 
     const username = req.body.username;
-    if(username) {
+    if (username) {
       const existingUser = await User.findOne({ username });
       if (existingUser && existingUser._id.toString() !== id) {
         return res.status(400).json({ success: false, message: "Username already exists" });
@@ -342,6 +370,17 @@ const removeFriend = async (req, res) => {
         friend.toString() !== friendId
       );
       await user.save();
+      friend.friends = friend.friends.filter(friend =>
+        friend.toString() !== req.userId
+      );
+      await friend.save();
+      const io = req.app.get("io");
+      io.to(friendId).emit("friendRemoved", {
+        by: {
+          _id: user._id,
+          username: user.username
+        }
+      });
       res.status(200).json({ success: true, message: "Friend removed" });
     } else {
       res.status(400).json({ success: false, message: "Friend not found in user friends list" });
@@ -366,5 +405,6 @@ module.exports = {
   getFriends,
   updateProfileImage,
   removeFriend,
-  getAllUsers
+  getAllUsers,
+  getPendingRequests
 };

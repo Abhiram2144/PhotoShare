@@ -9,6 +9,7 @@ const {
   getUserRelations,
   getFriends,
   removeFriend,
+  getPendingRequests,
 } = require("../controllers/user");
 
 // All routes below are protected
@@ -27,5 +28,5 @@ router.post("/accept-request", acceptFriendRequest);
 router.post("/reject-request", rejectFriendRequest);
 router.delete("/remove/:friendId", checkAuth, removeFriend);
 router.get("/friends", getFriends);
-
+router.get("/pending-requests", checkAuth, getPendingRequests);
 module.exports = router;
