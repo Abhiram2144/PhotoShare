@@ -15,21 +15,38 @@ const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
     origin: "http://localhost:5173",
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST", "DELETE", "PUT"],
     credentials: true,
   },
 });
 
 const connectedUsers = new Map();
 
+
 io.on("connection", (socket) => {
   console.log("🟢 New client connected:", socket.id);
 
-  io.on("connection", (socket) => {
+  // Log all events
   socket.onAny((event, ...args) => {
     console.log(`⚡️ Received event: ${event}`, args);
   });
-});
+
+
+//  In a real-world app, never trust client-sent IDs. Users can impersonate others. Use JWT from client and verify it before joining room:
+
+// socket.on("register", async (token) => {
+//   try {
+//     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+//     const userId = decoded.id;
+//     socket.join(userId);
+//     connectedUsers.set(userId, socket.id);
+//   } catch (err) {
+//     console.error("⚠️ Invalid token on socket register");
+//     socket.disconnect();
+//   }
+// });
+// Update your client-side to emit the token instead of plain userId.
+
   // Register socket to userId
   socket.on("register", (userId) => {
     socket.join(userId);
@@ -39,21 +56,21 @@ io.on("connection", (socket) => {
 
   // Friend request sent
   socket.on("send_friend_request", ({ to, from }) => {
-  io.to(to).emit("friendRequestReceived", from);  // ✅ matches frontend
-});
+    io.to(to).emit("friend_request_received", from);  // ✅ matches frontend
+  });
 
-socket.on("accept_friend_request", ({ to, from }) => {
-  io.to(to).emit("requestAccepted", from); // ✅ now matches frontend
-});
+  socket.on("accept_friend_request", ({ to, from }) => {
+    io.to(to).emit("request_accepted", from); // ✅ now matches frontend
+  });
 
-socket.on("removed_friend", ({ to, from }) => {
-  io.to(to).emit("friendRemoved", from); // ✅ matches frontend
-});
+  socket.on("removed_friend", ({ to, from }) => {
+    io.to(to).emit("friend_removed", from); // ✅ matches frontend
+  });
 
   // Image send (already in your code)
-  socket.on("sendImage", ({ to, image }) => {
+  socket.on("send_image", ({ to, image }) => {
     console.log(`📤 Sending image to ${to}`);
-    io.to(to).emit("receiveImage", { from: socket.id, image });
+    io.to(to).emit("receive_image", { from: socket.id, image });
   });
 
   // Disconnect logic

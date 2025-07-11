@@ -25,7 +25,7 @@ const register = async (req, res) => {
       username,
       email,
       password: hashedPassword,
-      profileImage: "https://ik.imagekit.io/abhiram/kaiser.jpg?updatedAt=1751644727052"
+      profileImage: "https://ik.imagekit.io/abhiram/Default_pfp.jpg?updatedAt=1752245852361"
     });
 
     const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
@@ -93,6 +93,7 @@ const getMyProfile = async (req, res) => {
   }
 };
 
+// ----------------- GET PENDING REQUESTS -----------------
 const getPendingRequests = async (req, res) => {
   try {
     const user = await User.findById(req.userId).populate({
@@ -110,6 +111,8 @@ const getPendingRequests = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
+// ----------------- UPDATE PROFILE PICTURE -----------------
 const updateProfileImage = async (req, res) => {
   try {
     const userId = req.userId;
@@ -146,9 +149,8 @@ const updateProfileImage = async (req, res) => {
     res.status(500).json({ success: false, message: "Image upload failed", error: err.message });
   }
 };
-// ----------------- SEARCH USERS BY USERNAME -----------------
 
-
+// ----------------- SEARCH USERS BY USERNAME ----------------- 
 const searchUser = async (req, res) => {
 
   try {
@@ -188,7 +190,9 @@ const sendFriendRequest = async (req, res) => {
   try {
     const { friendId } = req.body;
     if (!friendId) return res.status(400).json({ success: false, message: "Friend ID required" });
-
+    if (!mongoose.Types.ObjectId.isValid(friendId)) {
+      return res.status(400).json({ success: false, message: "Invalid friend ID" });
+    }
     const user = await User.findById(req.userId);
     const friend = await User.findById(friendId);
     if (user._id.equals(friend._id)) return res.status(400).json({ message: "Cannot send request to self" });
@@ -205,12 +209,19 @@ const sendFriendRequest = async (req, res) => {
     await friend.save();
 
     // Emit to receiver's room
-    req.io.to(friendId).emit("friendRequestReceived", {
-  _id: user._id,
-  username: user.username,
-  profileImage: user.profileImage
-});
-
+    req.io.to(friendId).emit("friend_request_received", {
+      _id: user._id,
+      username: user.username,
+      profileImage: user.profileImage
+    });
+    // Emit to sender's room
+    req.io.to(req.userId).emit("friend_request_sent", {
+      to: {
+        _id: friend._id,
+        username: friend.username,
+        profileImage: friend.profileImage,
+      }
+    });
     res.status(200).json({ message: "Friend request sent" });
   } catch (err) {
     res.status(500).json({
@@ -221,7 +232,7 @@ const sendFriendRequest = async (req, res) => {
   }
 };
 
-
+// ----------------- ACCEPT FRIEND REQUEST -----------------
 const acceptFriendRequest = async (req, res) => {
   const { requesterId } = req.body;
 
@@ -241,14 +252,24 @@ const acceptFriendRequest = async (req, res) => {
 
   await user.save();
   await requester.save();
-  req.io.to(requesterId).emit("requestAccepted", {
-  _id: user._id,
-  username: user.username,
-  profileImage: user.profileImage
-});
+  // Emit to receiver
+  req.io.to(requesterId).emit("request_accepted", {
+    _id: user._id,
+    username: user.username,
+    profileImage: user.profileImage
+  });
+  // Emit to sender
+  req.io.to(req.userId).emit("friend_added", {
+    friend: {
+      _id: requester._id,
+      username: requester.username,
+      profileImage: requester.profileImage
+    }
+  });
   res.status(200).json({ message: `You are now friends with ${requester.username}`, friend: requester });
 };
 
+// ----------------- REJECT FRIEND REQUEST -----------------
 const rejectFriendRequest = async (req, res) => {
   const { requesterId } = req.body;
 
@@ -263,11 +284,22 @@ const rejectFriendRequest = async (req, res) => {
 
   await user.save();
   await requester.save();
-  req.io.to(friendId).emit("friendRemoved", user._id);
-
+  req.io.to(requesterId).emit("friend_request_rejected", {
+    by: {
+      _id: user._id,
+      username: user.username
+    }
+  });
+  req.io.to(req.userId).emit("request_rejected_success", {
+    rejected: {
+      _id: requester._id,
+      username: requester.username
+    }
+  });
   res.status(200).json({ message: "Friend request rejected" });
 };
 
+// ----------------- GET USER RELATIONS -----------------
 const getUserRelations = async (req, res) => {
   try {
     const user = await User.findById(req.userId)
@@ -286,6 +318,7 @@ const getUserRelations = async (req, res) => {
   }
 };
 
+// ----------------- GET USER FRIENDS -----------------
 const getFriends = async (req, res) => {
   try {
     const user = await User.findById(req.userId).populate("friends", "username email _id profileImage");
@@ -328,7 +361,7 @@ const updateUser = async (req, res) => {
   try {
     const id = req.userId;
 
-    const allowedFields = ["username", "email", "profilePicture"];
+    const allowedFields = ["username", "email", "profileImage"];
     const updates = Object.keys(req.body);
 
     const isValidUpdate = updates.every((field) => allowedFields.includes(field));
@@ -358,7 +391,9 @@ const updateUser = async (req, res) => {
 const removeFriend = async (req, res) => {
   try {
     const { friendId } = req.params;
-
+    if (!mongoose.Types.ObjectId.isValid(friendId)) {
+      return res.status(400).json({ success: false, message: "Invalid friend ID" });
+    }
     const user = await User.findById(req.userId);
     const friend = await User.findById(friendId);
     if (!user || !friend) return res.status(404).json({
@@ -375,10 +410,16 @@ const removeFriend = async (req, res) => {
       );
       await friend.save();
       const io = req.app.get("io");
-      io.to(friendId).emit("friendRemoved", {
+      io.to(friendId).emit("friend_removed", {
         by: {
           _id: user._id,
           username: user.username
+        }
+      });
+      io.to(req.userId).emit("friend_removed", {
+        by: {
+          _id: friend._id,
+          username: friend.username
         }
       });
       res.status(200).json({ success: true, message: "Friend removed" });
