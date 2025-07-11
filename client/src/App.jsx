@@ -1,6 +1,6 @@
 import './App.css'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import UserContextProvider from "./contexts/UserContext"
+import UserContextProvider, { UserContext } from "./contexts/UserContext"
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import PrivateRoute from "./components/PrivateRoute";
@@ -12,10 +12,23 @@ import ChatHome from "./pages/ChatHome";
 import SearchFriend from "./pages/SearchFriend";
 import Profile from "./pages/Profile";
 import UserProfile from "./pages/UserProfile";
+import { SocketProvider, useSocket } from './contexts/SocketContext';
+import { useContext, useEffect } from 'react';
+const { user } = useContext(UserContext);
 
+const socket = useSocket();
 function App() {
+  
+useEffect(() => {
+  if (socket && user?._id) {
+    socket.emit("register", user._id);
+    console.log("Registered socket for:", user._id);
+  }
+}, [socket, user]);
   return (
+   
     <UserContextProvider>
+       <SocketProvider >
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Home />} />
@@ -32,7 +45,9 @@ function App() {
       </BrowserRouter>
 
       <ToastContainer position="top-center" autoClose={3000} />
+      </SocketProvider>
     </UserContextProvider>
+    
   );
 }
 
