@@ -1,19 +1,35 @@
-import { createContext, useContext, useEffect, useRef } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
+import { UserContext } from "./UserContext";
 
 const SocketContext = createContext(null);
 
-export const SocketProvider = ({ children, user }) => {
+export const SocketProvider = ({ children }) => {
+  const { user } = useContext(UserContext);
   const socketRef = useRef(null);
+  const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    if (user) {
+    if (user && !socketRef.current) {
       socketRef.current = io("http://localhost:8000");
-      socketRef.current.emit("register", user._id);
+
+      socketRef.current.on("connect", () => {
+        console.log("🔌 Socket connected:", socketRef.current.id);
+        socketRef.current.emit("register", user._id);
+        setConnected(true);
+      });
+
+      socketRef.current.on("disconnect", () => {
+        console.log("🛑 Socket disconnected");
+        setConnected(false);
+      });
     }
 
     return () => {
-      socketRef.current?.disconnect();
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
     };
   }, [user]);
 
@@ -23,6 +39,5 @@ export const SocketProvider = ({ children, user }) => {
     </SocketContext.Provider>
   );
 };
-
 
 export const useSocket = () => useContext(SocketContext);

@@ -46,6 +46,7 @@ const Profile = () => {
             socket.off("friendRemoved");
         };
     }, [socket, user]);
+    
     useEffect(() => {
         fetchPendingRequests();
         if (showModal) {
