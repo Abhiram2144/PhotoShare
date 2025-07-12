@@ -61,6 +61,7 @@ io.on("connection", (socket) => {
 
   socket.on("accept_friend_request", ({ to, from }) => {
     io.to(to).emit("request_accepted", from); // ✅ now matches frontend
+    io.to(from).emit("request_accepted_confirmed", to); // inform the sender
   });
 
   socket.on("removed_friend", ({ to, from }) => {

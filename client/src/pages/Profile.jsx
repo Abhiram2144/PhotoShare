@@ -1,7 +1,5 @@
-// ... (imports stay the same)
-
 import { useContext, useEffect, useRef, useState } from "react";
-import { Link, Meta, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { UserContext } from "../contexts/UserContext";
 import axios from "../components/api";
 import Navbar from "../components/Navbar";
@@ -13,46 +11,61 @@ const Profile = () => {
     const [showModal, setShowModal] = useState(false);
     const [friends, setFriends] = useState([]);
     const [pendingRequests, setPendingRequests] = useState([]);
+    const [pendingCount, setPendingCount] = useState(0);
     const [search, setSearch] = useState("");
     const [removing, setRemoving] = useState(null);
     const [showImageModal, setShowImageModal] = useState(false);
     const [selectedImage, setSelectedImage] = useState(null);
     const [editUsernameModal, setEditUsernameModal] = useState(false);
     const [newUsername, setNewUsername] = useState("");
-    // const fileInputRef = useRef();
-    // const navigate = useNavigate();
     const socket = useSocket();
+    const [newlyAddedFriends, setNewlyAddedFriends] = useState([]);
+
+    const listenersAttachedRef = useRef(false);
+    const hasShownToastRef = useRef(false);
+
     useEffect(() => {
         if (!socket || !user?.id) return;
 
-        socket.on("friendRequestReceived", (requester) => {
+        const handleFriendRequest = (requester) => {
+            if (hasShownToastRef.current) return;
             setPendingRequests((prev) => [...prev, requester]);
-            toast.info(`New friend request from ${requester.username}`);
-        });
+            setPendingCount((prev) => prev + 1);
+            toast.info(`📥 New friend request from ${requester.username}`);
+            hasShownToastRef.current = true;
+            setTimeout(() => {
+                hasShownToastRef.current = false;
+            }, 5000);
+        };
 
-        socket.on("requestAccepted", (newFriend) => {
-            console.log("friend request accepted")
+        const handleRequestAccepted = (newFriend) => {
             setFriends((prev) => [...prev, newFriend]);
-            toast.success(`${newFriend.username} accepted your request`);
-        });
+            setNewlyAddedFriends(prev => [...prev, newFriend._id]);
+            toast.success(`🎉 ${newFriend.username} accepted your request`);
+        };
 
-        socket.on("friendRemoved", (removedFriendId) => {
+        const handleFriendRemoved = (removedFriendId) => {
             setFriends((prev) => prev.filter(f => f._id !== removedFriendId));
-        });
+        };
+
+        if (!listenersAttachedRef.current) {
+            socket.on("friend_request_received", handleFriendRequest);
+            socket.on("request_accepted", handleRequestAccepted);
+            socket.on("friend_removed", handleFriendRemoved);
+            listenersAttachedRef.current = true;
+        }
 
         return () => {
-            socket.off("friendRequestReceived");
-            socket.off("requestAccepted");
-            socket.off("friendRemoved");
+            socket.off("friend_request_received", handleFriendRequest);
+            socket.off("request_accepted", handleRequestAccepted);
+            socket.off("friend_removed", handleFriendRemoved);
+            listenersAttachedRef.current = false;
         };
     }, [socket, user]);
 
     useEffect(() => {
         fetchPendingRequests();
-        if (showModal) {
-            fetchFriends();
-
-        }
+        if (showModal) fetchFriends();
     }, [showModal]);
 
     const fetchFriends = async () => {
@@ -67,12 +80,13 @@ const Profile = () => {
     const fetchPendingRequests = async () => {
         try {
             const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/relations/pending-requests`, getAuthHeader());
-            setPendingRequests(data.pending || []); // ✅ use correct data
+            const pending = data.pending || [];
+            setPendingRequests(pending);
+            setPendingCount(pending.length);
         } catch (err) {
             console.error("Failed to fetch pending requests:", err);
         }
     };
-
 
     const handleRemove = (friendId, friendUsername) => {
         toast.info(
@@ -87,12 +101,9 @@ const Profile = () => {
                                     await axios.delete(`/relations/remove/${friendId}`, getAuthHeader());
                                     setFriends((prev) => prev.filter(f => f._id !== friendId));
                                     toast.success(`${friendUsername} removed.`);
-                                    if (!socket) {
-                                        console.error("Socket not connected");
-                                        toast.error("Cannot notify server. Please try again.");
-                                        return;
+                                    if (socket) {
+                                        socket.emit("removed_friend", { to: friendId, from: user.id });
                                     }
-                                    socket.emit("removed_friend", { to: friendId, from: user.id });
                                 } catch (err) {
                                     console.error("Remove friend error:", err);
                                     toast.error("Failed to remove friend.");
@@ -114,40 +125,36 @@ const Profile = () => {
         try {
             const res = await axios.post("/relations/accept-request", { requesterId }, getAuthHeader());
             const newFriend = res?.data.friend;
-            console.log("newFriend", res)
             if (!newFriend) {
                 toast.error("No friend data received");
-                return; // avoid firing success toast
-            }
-
-            setPendingRequests(prev => prev.filter(req => req._id !== requesterId));
-            setFriends(prev => [...prev, newFriend]);
-            toast.success("Friend request accepted.");
-            if (!socket) {
-                console.error("Socket not connected");
                 return;
             }
-            socket.emit("accept_friend_request", {
-                to: requesterId,
-                from: {
-                    _id: user.id,
-                    username: user.username,
-                    profileImage: user.profileImage,
-                }
-            });
+            setPendingRequests(prev => prev.filter(req => req._id !== requesterId));
+            setFriends(prev => [...prev, newFriend]);
+            setPendingCount(prev => prev - 1);
+            toast.success("Friend request accepted.");
+            if (socket) {
+                socket.emit("accept_friend_request", {
+                    to: requesterId,
+                    from: {
+                        _id: user.id,
+                        username: user.username,
+                        profileImage: user.profileImage,
+                    }
+                });
+            }
         } catch (err) {
             console.error("Accept request error:", err);
             toast.error("Failed to accept request.");
         }
     };
 
-
-
     const handleReject = async (requesterId) => {
         try {
             await axios.post("/relations/reject-request", { requesterId }, getAuthHeader());
-            toast.info("Friend request rejected.");
             setPendingRequests(prev => prev.filter(req => req._id !== requesterId));
+            setPendingCount(prev => prev - 1);
+            toast.info("Friend request rejected.");
         } catch (err) {
             toast.error("Failed to reject request.");
         }
@@ -188,7 +195,6 @@ const Profile = () => {
         friend?.username?.toLowerCase().includes(search.toLowerCase())
     );
 
-
     return (
         <div className="min-h-screen bg-white">
             <Navbar />
@@ -211,12 +217,12 @@ const Profile = () => {
                     className="mt-6 px-6 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition relative"
                 >
                     View Friends
-                    {pendingRequests.length > 0 && (
+                    {pendingCount > 0 && (
                         <span
                             className="absolute -top-2 -right-4 bg-red-600 text-white text-[10px] font-bold px-1.5 py-[1px] rounded-full animate-pulse"
-                            title={`${pendingRequests.length} pending request(s)`}
+                            title={`${pendingCount} pending request(s)`}
                         >
-                            +{pendingRequests.length}
+                            +{pendingCount}
                         </span>
                     )}
                 </button>
