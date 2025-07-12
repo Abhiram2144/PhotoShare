@@ -15,11 +15,11 @@ export const SocketProvider = ({ children }) => {
 
       socketRef.current.on("connect", () => {
         console.log("🔌 Socket connected:", socketRef.current.id);
-        socketRef.current.emit("register", user._id);
+        socketRef.current.emit("register", user.id);
         setConnected(true);
       });
 
-      socketRef.current.on("disconnect", () => {
+      socketRef.current.off("disconnect", () => {
         console.log("🛑 Socket disconnected");
         setConnected(false);
       });

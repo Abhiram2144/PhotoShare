@@ -4,6 +4,7 @@ import { UserContext } from "../contexts/UserContext";
 import axios from "../components/api";
 import { FiUser, FiLogOut, FiUserPlus } from "react-icons/fi";
 import { toast } from "react-toastify";
+import { useSocket } from "../contexts/SocketContext";
 
 const ChatHome = () => {
   const { user, logout, getAuthHeader } = useContext(UserContext);
@@ -11,7 +12,9 @@ const ChatHome = () => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const [pendingCount, setPendingCount] = useState(0);
+  const socket = useSocket(); 
 
+  // fetch pending count
   useEffect(() => {
     const fetchPending = async () => {
       try {
@@ -24,7 +27,11 @@ const ChatHome = () => {
 
     fetchPending();
   }, []);
+
+
+  // fetch friends useEffect
   useEffect(() => {
+    if(!user) navigate("/login");
     const fetchFriends = async () => {
       try {
         const { data } = await axios.get("/relations/friends", getAuthHeader());
@@ -36,8 +43,41 @@ const ChatHome = () => {
       }
     };
 
-    fetchFriends();
-  }, [getAuthHeader]);
+    fetchFriends();1
+  }, [user]);
+
+  useEffect(() => {
+  if (!socket || !user?._id) return;
+
+  const handleFriendRequest = async () => {
+  try {
+    // const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/relations/pending-requests`, getAuthHeader());
+    // setPendingCount(data.pending.length || 0);
+    setPendingCount(prev => prev + 1);
+    toast.info("Friend request received!");
+  } catch (err) {
+    console.error("Error updating pending count:", err);
+  }
+};
+
+  const handleRequestAccepted = async(newFriend) => {
+     setFriends(prev => [...prev, newFriend]);
+  };
+
+  const handleFriendRemoved = ({ by }) => {
+    setFriends(prev => prev.filter(friend => friend._id !== by._id));
+  };
+
+  socket.on("friend_request_received", handleFriendRequest);
+  socket.on("request_accepted", handleRequestAccepted);
+  socket.on("friend_removed", handleFriendRemoved);
+
+  return () => {
+    socket.off("friend_request_received", handleFriendRequest);
+    socket.off("request_accepted", handleRequestAccepted);
+    socket.off("friend_removed", handleFriendRemoved);
+  };
+}, [socket, user]);
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
@@ -103,7 +143,8 @@ const ChatHome = () => {
         {loading ? (
           <p className="text-center text-gray-500">Loading chats...</p>
         ) : friends.length === 0 ? (
-          <p className="text-center text-gray-500">You have no friends yet 😢</p>
+          <p className="text-center text-gray-500">You have no friends yet 😢 <span>{pendingCount}</span></p> 
+          
         ) : (
           <div className="space-y-4">
             {friends.map((friend) => (

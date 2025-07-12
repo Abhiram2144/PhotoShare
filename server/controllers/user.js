@@ -214,7 +214,7 @@ const sendFriendRequest = async (req, res) => {
       username: user.username,
       profileImage: user.profileImage
     });
-    // Emit to sender's room
+    // Emit to sender's rooms
     req.io.to(req.userId).emit("friend_request_sent", {
       to: {
         _id: friend._id,

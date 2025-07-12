@@ -1,13 +1,15 @@
 // src/pages/Login.jsx
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../contexts/UserContext";
 import axios from "../components/api";
 import Navbar from "../components/Navbar";
+import { SocketProvider, useSocket } from "../contexts/SocketContext";
 
 const Login = () => {
+  const socket = useSocket(SocketProvider);
   const navigate = useNavigate();
-  const { login } = useContext(UserContext);
+  const { login, user } = useContext(UserContext);
 
   const [form, setForm] = useState({
     usernameOrEmail: "",
@@ -20,6 +22,20 @@ const Login = () => {
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
+
+  useEffect(() => {
+    
+  if (socket && user?.id) {
+    if (socket.connected) {
+      socket.emit("register", user.id);
+    } else {
+      socket.on("connect", () => {
+        socket.emit("register", user.id);
+      });
+    }
+  }
+}, [socket, user]);
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();

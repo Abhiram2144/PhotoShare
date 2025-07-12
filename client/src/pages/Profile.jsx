@@ -46,7 +46,7 @@ const Profile = () => {
             socket.off("friendRemoved");
         };
     }, [socket, user]);
-    
+
     useEffect(() => {
         fetchPendingRequests();
         if (showModal) {
@@ -75,63 +75,71 @@ const Profile = () => {
 
 
     const handleRemove = (friendId, friendUsername) => {
-    toast.info(
-        ({ closeToast }) => (
-            <div>
-                <p>Remove <b>{friendUsername}</b> from your friends?</p>
-                <div className="flex justify-end mt-2 space-x-2">
-                    <button onClick={closeToast} className="text-sm text-gray-500">Cancel</button>
-                    <button
-                        onClick={async () => {
-                            try {
-                                await axios.delete(`/relations/remove/${friendId}`, getAuthHeader());
-                                setFriends((prev) => prev.filter(f => f._id !== friendId));
-                                toast.success(`${friendUsername} removed.`);
-                                socket.emit("removed_friend", { to: friendId, from: user._id });
-                            } catch (err) {
-                                console.error("Remove friend error:", err);
-                                toast.error("Failed to remove friend.");
-                            }
-                            closeToast();
-                        }}
-                        className="text-sm text-red-600 font-semibold"
-                    >
-                        Remove
-                    </button>
+        toast.info(
+            ({ closeToast }) => (
+                <div>
+                    <p>Remove <b>{friendUsername}</b> from your friends?</p>
+                    <div className="flex justify-end mt-2 space-x-2">
+                        <button onClick={closeToast} className="text-sm text-gray-500">Cancel</button>
+                        <button
+                            onClick={async () => {
+                                try {
+                                    await axios.delete(`/relations/remove/${friendId}`, getAuthHeader());
+                                    setFriends((prev) => prev.filter(f => f._id !== friendId));
+                                    toast.success(`${friendUsername} removed.`);
+                                    if (!socket) {
+                                        console.error("Socket not connected");
+                                        toast.error("Cannot notify server. Please try again.");
+                                        return;
+                                    }
+                                    socket.emit("removed_friend", { to: friendId, from: user.id });
+                                } catch (err) {
+                                    console.error("Remove friend error:", err);
+                                    toast.error("Failed to remove friend.");
+                                }
+                                closeToast();
+                            }}
+                            className="text-sm text-red-600 font-semibold"
+                        >
+                            Remove
+                        </button>
+                    </div>
                 </div>
-            </div>
-        ),
-        { autoClose: false }
-    );
-};
+            ),
+            { autoClose: false }
+        );
+    };
 
     const handleAccept = async (requesterId) => {
-    try {
-        const res = await axios.post("/relations/accept-request", { requesterId }, getAuthHeader());
-        const newFriend = res?.data.friend;
-        console.log("newFriend", res)
-        if (!newFriend) {
-            toast.error("No friend data received");
-            return; // avoid firing success toast
-        }
-
-        setPendingRequests(prev => prev.filter(req => req._id !== requesterId));
-        setFriends(prev => [...prev, newFriend]);
-        toast.success("Friend request accepted.");
-
-        socket.emit("accept_friend_request", {
-            to: requesterId,
-            from: {
-                _id: user._id,
-                username: user.username,
-                profileImage: user.profileImage,
+        try {
+            const res = await axios.post("/relations/accept-request", { requesterId }, getAuthHeader());
+            const newFriend = res?.data.friend;
+            console.log("newFriend", res)
+            if (!newFriend) {
+                toast.error("No friend data received");
+                return; // avoid firing success toast
             }
-        });
-    } catch (err) {
-        console.error("Accept request error:", err);
-        toast.error("Failed to accept request.");
-    }
-};
+
+            setPendingRequests(prev => prev.filter(req => req._id !== requesterId));
+            setFriends(prev => [...prev, newFriend]);
+            toast.success("Friend request accepted.");
+            if (!socket) {
+                console.error("Socket not connected");
+                return;
+            }
+            socket.emit("accept_friend_request", {
+                to: requesterId,
+                from: {
+                    _id: user.id,
+                    username: user.username,
+                    profileImage: user.profileImage,
+                }
+            });
+        } catch (err) {
+            console.error("Accept request error:", err);
+            toast.error("Failed to accept request.");
+        }
+    };
 
 
 

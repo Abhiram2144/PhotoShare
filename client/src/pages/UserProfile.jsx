@@ -50,7 +50,7 @@ const UserProfile = () => {
             socket.emit("send_friend_request", {
                 to: id,
                 from: {
-                    _id: user._id,
+                    _id: user.id,
                     username: user.username,
                     profileImage: user.profileImage,
                 },
@@ -64,7 +64,7 @@ const UserProfile = () => {
     const removeFriend = async () => {
         try {
             await axios.delete(`/relations/remove/${id}`, getAuthHeader());
-            socket.emit("removed_friend", { to: id, from: user._id });
+            socket.emit("removed_friend", { to: id, from: user.id });
             toast.success("Friend removed");
             setRelationshipStatus("none");
         } catch {
