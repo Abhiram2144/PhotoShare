@@ -159,12 +159,12 @@ const searchUser = async (req, res) => {
 
     const username = req.query.username?.trim();
 
-    if (!username || username.length < 2) {
-      return res.status(400).json({
-        success: false,
-        message: "Username query required (min 2 characters)"
-      });
-    }
+    // if (!username || username.length < 2) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "Username query required (min 2 characters)"
+    //   });
+    // }
 
     const users = await User.find({
       username: { $regex: new RegExp(username, "i") },

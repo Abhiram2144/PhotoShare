@@ -50,14 +50,24 @@ const ChatHome = () => {
   }, [user]);
 
   const listenersAttachedRef = useRef(false); // ✅ Prevent duplicate listeners
-
+  const hasShownToastRef = useRef(false);
 useEffect(() => {
   if (!socket || !user?.id) return;
 
   const handleFriendRequest = () => {
-    console.log("🔥 Received socket event: friend_request_received");
-    setPendingCount(prev => prev + 1);
-    toast.info("📥 You have a new friend request!");
+     console.log("🔥 Received socket event: friend_request_received");
+
+  // Guard clause
+  if (hasShownToastRef.current) return;
+
+  setPendingCount(prev => prev + 1);
+  toast.info("📥 You have a new friend request!");
+  hasShownToastRef.current = true;
+
+  // Reset the flag after X seconds (optional, in case you want new requests later)
+  setTimeout(() => {
+    hasShownToastRef.current = false;
+  }, 5000); // or any interval
   };
 
   const handleRequestAccepted = (newFriend) => {
