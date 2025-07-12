@@ -75,18 +75,36 @@ const UserProfile = () => {
     useEffect(() => {
         if (!socket) return;
 
-        socket.on("friendRemoved", ({ by }) => {
-  if (by._id === id) {
-    setRelationshipStatus("none");
-    toast.info("You were removed as a friend.");
-  }
-});
+        socket.on("friend_removed", ({ by }) => {
+            if (by._id === id) {
+                setRelationshipStatus("none");
+                toast.info("You were removed as a friend.");
+            }
+        });
 
 
         return () => {
-            socket.off("friendRemoved");
+            socket.off("friend_removed");
         };
     }, [socket, id]);
+
+    useEffect(() => {
+    if (!socket || !user?.id || !id) return;
+
+    const handleRequestAccepted = (newFriend) => {
+        if (newFriend._id === id) {
+            setRelationshipStatus("friends");
+            // toast.success(`${newFriend.username} accepted your request!`);
+        }
+    };
+
+    socket.on("request_accepted", handleRequestAccepted);
+
+    return () => {
+        socket.off("request_accepted", handleRequestAccepted);
+    };
+}, [socket, user?.id, id]);
+
 
     if (!targetUser) {
         return (
