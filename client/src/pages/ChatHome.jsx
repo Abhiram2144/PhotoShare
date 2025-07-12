@@ -5,9 +5,12 @@ import axios from "../components/api";
 import { FiUser, FiLogOut, FiUserPlus } from "react-icons/fi";
 import { toast } from "react-toastify";
 import { useSocket } from "../contexts/SocketContext";
+import { useRef } from "react";
 
 const ChatHome = () => {
   const { user, logout, getAuthHeader } = useContext(UserContext);
+  console.log("📦 ChatHome mounted", user?.username);
+
   const [friends, setFriends] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -46,38 +49,42 @@ const ChatHome = () => {
     fetchFriends();1
   }, [user]);
 
-  useEffect(() => {
-  if (!socket || !user?._id) return;
+  const listenersAttachedRef = useRef(false); // ✅ Prevent duplicate listeners
 
-  const handleFriendRequest = async () => {
-  try {
-    // const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/relations/pending-requests`, getAuthHeader());
-    // setPendingCount(data.pending.length || 0);
+useEffect(() => {
+  if (!socket || !user?.id) return;
+
+  const handleFriendRequest = () => {
+    console.log("🔥 Received socket event: friend_request_received");
     setPendingCount(prev => prev + 1);
-    toast.info("Friend request received!");
-  } catch (err) {
-    console.error("Error updating pending count:", err);
-  }
-};
+    toast.info("📥 You have a new friend request!");
+  };
 
-  const handleRequestAccepted = async(newFriend) => {
-     setFriends(prev => [...prev, newFriend]);
+  const handleRequestAccepted = (newFriend) => {
+    setFriends(prev => [...prev, newFriend]);
   };
 
   const handleFriendRemoved = ({ by }) => {
     setFriends(prev => prev.filter(friend => friend._id !== by._id));
   };
 
-  socket.on("friend_request_received", handleFriendRequest);
-  socket.on("request_accepted", handleRequestAccepted);
-  socket.on("friend_removed", handleFriendRemoved);
+  // ✅ Attach only once
+  if (!listenersAttachedRef.current) {
+    socket.on("friend_request_received", handleFriendRequest);
+    socket.on("request_accepted", handleRequestAccepted);
+    socket.on("friend_removed", handleFriendRemoved);
+    console.log("✅ Socket listeners attached exactly once");
+    listenersAttachedRef.current = true;
+  }
 
   return () => {
+    console.log("🧹 Cleaning up socket listeners...");
     socket.off("friend_request_received", handleFriendRequest);
     socket.off("request_accepted", handleRequestAccepted);
     socket.off("friend_removed", handleFriendRemoved);
+    listenersAttachedRef.current = false; // 👈 important!
   };
-}, [socket, user]);
+}, [socket, user?.id]);
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
@@ -143,7 +150,7 @@ const ChatHome = () => {
         {loading ? (
           <p className="text-center text-gray-500">Loading chats...</p>
         ) : friends.length === 0 ? (
-          <p className="text-center text-gray-500">You have no friends yet 😢 <span>{pendingCount}</span></p> 
+          <p className="text-center text-gray-500">You have no friends yet 😢</p> 
           
         ) : (
           <div className="space-y-4">

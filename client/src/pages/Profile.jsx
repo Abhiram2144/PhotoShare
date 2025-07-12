@@ -23,7 +23,7 @@ const Profile = () => {
     // const navigate = useNavigate();
     const socket = useSocket();
     useEffect(() => {
-        if (!socket || !user?._id) return;
+        if (!socket || !user?.id) return;
 
         socket.on("friendRequestReceived", (requester) => {
             setPendingRequests((prev) => [...prev, requester]);
