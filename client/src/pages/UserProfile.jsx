@@ -67,10 +67,17 @@ const UserProfile = () => {
             socket.emit("removed_friend", { to: id, from: user.id });
             toast.success("Friend removed");
             setRelationshipStatus("none");
+
+            // 🧠 Update targetUser's friend list manually
+            setTargetUser(prev => ({
+                ...prev,
+                friends: prev.friends.filter(f => f._id !== user.id),
+            }));
         } catch {
             toast.error("Failed to remove friend");
         }
     };
+
 
     useEffect(() => {
         if (!socket) return;
@@ -89,21 +96,30 @@ const UserProfile = () => {
     }, [socket, id]);
 
     useEffect(() => {
-    if (!socket || !user?.id || !id) return;
+        if (!socket || !user?.id || !id) return;
 
-    const handleRequestAccepted = (newFriend) => {
-        if (newFriend._id === id) {
-            setRelationshipStatus("friends");
-            // toast.success(`${newFriend.username} accepted your request!`);
-        }
-    };
+        const handleRequestAccepted = (newFriend) => {
+            if (newFriend._id === id) {
+                setRelationshipStatus("friends");
 
-    socket.on("request_accepted", handleRequestAccepted);
+                // 🧠 Add current user to targetUser's friends list
+                setTargetUser(prev => ({
+                    ...prev,
+                    friends: prev.friends.some(f => f._id === user.id)
+                        ? prev.friends
+                        : [...prev.friends, { _id: user.id }],
+                }));
+            }
+        };
 
-    return () => {
-        socket.off("request_accepted", handleRequestAccepted);
-    };
-}, [socket, user?.id, id]);
+        socket.on("request_accepted", handleRequestAccepted);
+
+        return () => {
+            socket.off("request_accepted", handleRequestAccepted);
+        };
+    }, [socket, user?.id, id]);
+
+
 
 
     if (!targetUser) {
