@@ -15,7 +15,7 @@ const ChatHome = () => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const [pendingCount, setPendingCount] = useState(0);
-  const socket = useSocket(); 
+  const socket = useSocket();
 
   // fetch pending count
   useEffect(() => {
@@ -34,7 +34,7 @@ const ChatHome = () => {
 
   // fetch friends useEffect
   useEffect(() => {
-    if(!user) navigate("/login");
+    if (!user) navigate("/login");
     const fetchFriends = async () => {
       try {
         const { data } = await axios.get("/relations/friends", getAuthHeader());
@@ -46,55 +46,59 @@ const ChatHome = () => {
       }
     };
 
-    fetchFriends();1
+    fetchFriends(); 1
   }, [user]);
 
   const listenersAttachedRef = useRef(false); // ✅ Prevent duplicate listeners
   const hasShownToastRef = useRef(false);
-useEffect(() => {
-  if (!socket || !user?.id) return;
+  useEffect(() => {
+    if (!socket || !user?.id) return;
 
-  const handleFriendRequest = () => {
-     console.log("🔥 Received socket event: friend_request_received");
+    const handleFriendRequest = () => {
+      console.log("🔥 Received socket event: friend_request_received");
 
-  // Guard clause
-  if (hasShownToastRef.current) return;
+      // Guard clause
+      if (hasShownToastRef.current) return;
 
-  setPendingCount(prev => prev + 1);
-  toast.info("📥 You have a new friend request!");
-  hasShownToastRef.current = true;
+      setPendingCount(prev => prev + 1);
+      toast.info("📥 You have a new friend request!");
+      hasShownToastRef.current = true;
 
-  // Reset the flag after X seconds (optional, in case you want new requests later)
-  setTimeout(() => {
-    hasShownToastRef.current = false;
-  }, 5000); // or any interval
-  };
+      // Reset the flag after X seconds (optional, in case you want new requests later)
+      setTimeout(() => {
+        hasShownToastRef.current = false;
+      }, 5000); // or any interval
+    };
 
-  const handleRequestAccepted = (newFriend) => {
-    setFriends(prev => [...prev, newFriend]);
-  };
+    const handleRequestAccepted = (newFriend) => {
+      setFriends(prev => {
+        const alreadyExists = prev.some(f => f._id === newFriend._id);
+        return alreadyExists ? prev : [...prev, newFriend];
+      });
+    };
 
-  const handleFriendRemoved = ({ by }) => {
-    setFriends(prev => prev.filter(friend => friend._id !== by._id));
-  };
 
-  // ✅ Attach only once
-  if (!listenersAttachedRef.current) {
-    socket.on("friend_request_received", handleFriendRequest);
-    socket.on("request_accepted", handleRequestAccepted);
-    socket.on("friend_removed", handleFriendRemoved);
-    console.log("✅ Socket listeners attached exactly once");
-    listenersAttachedRef.current = true;
-  }
+    const handleFriendRemoved = ({ by }) => {
+      setFriends(prev => prev.filter(friend => friend._id !== by._id));
+    };
 
-  return () => {
-    console.log("🧹 Cleaning up socket listeners...");
-    socket.off("friend_request_received", handleFriendRequest);
-    socket.off("request_accepted", handleRequestAccepted);
-    socket.off("friend_removed", handleFriendRemoved);
-    listenersAttachedRef.current = false; // 👈 important!
-  };
-}, [socket, user?.id]);
+    // ✅ Attach only once
+    if (!listenersAttachedRef.current) {
+      socket.on("friend_request_received", handleFriendRequest);
+      socket.on("request_accepted", handleRequestAccepted);
+      socket.on("friend_removed", handleFriendRemoved);
+      console.log("✅ Socket listeners attached exactly once");
+      listenersAttachedRef.current = true;
+    }
+
+    return () => {
+      console.log("🧹 Cleaning up socket listeners...");
+      socket.off("friend_request_received", handleFriendRequest);
+      socket.off("request_accepted", handleRequestAccepted);
+      socket.off("friend_removed", handleFriendRemoved);
+      listenersAttachedRef.current = false; // 👈 important!
+    };
+  }, [socket, user?.id]);
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
@@ -116,7 +120,7 @@ useEffect(() => {
         </button>
 
         <h1 className="text-xl font-bold text-gray-800">Chats</h1>
-        
+
 
         <button
           onClick={() => {
@@ -160,8 +164,8 @@ useEffect(() => {
         {loading ? (
           <p className="text-center text-gray-500">Loading chats...</p>
         ) : friends.length === 0 ? (
-          <p className="text-center text-gray-500">You have no friends yet 😢</p> 
-          
+          <p className="text-center text-gray-500">You have no friends yet 😢</p>
+
         ) : (
           <div className="space-y-4">
             {friends.map((friend) => (
@@ -180,7 +184,7 @@ useEffect(() => {
                     {friend.username}
                   </span>
                 </div>
-                
+
               </div>
             ))}
           </div>
