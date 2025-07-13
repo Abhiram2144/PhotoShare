@@ -11,7 +11,7 @@ import ChatHome from "../pages/ChatHome";
 import SearchFriend from "../pages/SearchFriend";
 import Profile from "../pages/Profile";
 import UserProfile from "../pages/UserProfile";
-
+import ChatRoom from "../pages/ChatRoom";
 const AppRoutes = () => {
   const { user } = useContext(UserContext);
 
@@ -25,13 +25,14 @@ const AppRoutes = () => {
         path="/chatHome"
         element={
           <PrivateRoute>
-            <ChatHome key={user?.id || "guest"} />
+            <ChatHome key={user?.id} />
           </PrivateRoute>
         }
       />
       <Route path="/searchFriend" element={<PrivateRoute><SearchFriend /></PrivateRoute>} />
       <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
       <Route path="/user/:id" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
+      <Route path = "/chat/:friendId" element={<PrivateRoute><ChatRoom/></PrivateRoute>} />
     </Routes>
   );
 };

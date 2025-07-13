@@ -41,7 +41,12 @@ profileImageId: { type: String },
   createdAt: {
     type: Date,
     default: Date.now
-  }
+  },
+
+  recentChats: [{ type: mongoose.Schema.Types.ObjectId, ref: "Chat" }]
+
+
+
 });
 
 module.exports = mongoose.model('User', userSchema);

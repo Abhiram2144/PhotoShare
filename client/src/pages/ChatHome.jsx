@@ -1,104 +1,106 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../contexts/UserContext";
 import axios from "../components/api";
-import { FiUser, FiLogOut, FiUserPlus } from "react-icons/fi";
+import { FiUser, FiLogOut, FiUserPlus, FiSearch } from "react-icons/fi";
 import { toast } from "react-toastify";
 import { useSocket } from "../contexts/SocketContext";
-import { useRef } from "react";
 
 const ChatHome = () => {
   const { user, logout, getAuthHeader } = useContext(UserContext);
-  console.log("📦 ChatHome mounted", user?.username);
-
   const [friends, setFriends] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
+  const [recentChats, setRecentChats] = useState([]);
   const [pendingCount, setPendingCount] = useState(0);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(true);
   const socket = useSocket();
+  const navigate = useNavigate();
 
-  // fetch pending count
+  const listenersAttachedRef = useRef(false);
+  const hasShownToastRef = useRef(false);
+
   useEffect(() => {
-    const fetchPending = async () => {
+    if (!user) return navigate("/login");
+
+    const fetchData = async () => {
       try {
-        const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/relations/pending-requests`, getAuthHeader());
-        setPendingCount(data.pending?.length || 0);
+        const [friendsRes, chatsRes, pendingRes] = await Promise.all([
+          axios.get("/relations/friends", getAuthHeader()),
+          axios.get("/chat/recent", getAuthHeader()),
+          axios.get(`${import.meta.env.VITE_BACKEND_URL}/relations/pending-requests`, getAuthHeader()),
+        ]);
+
+        setFriends(friendsRes.data.friends || []);
+        setRecentChats(chatsRes.data.chats || []);
+        setPendingCount(pendingRes.data.pending?.length || 0);
       } catch (err) {
-        console.error("Failed to fetch pending count", err);
-      }
-    };
-
-    fetchPending();
-  }, []);
-
-
-  // fetch friends useEffect
-  useEffect(() => {
-    if (!user) navigate("/login");
-    const fetchFriends = async () => {
-      try {
-        const { data } = await axios.get("/relations/friends", getAuthHeader());
-        setFriends(data.friends || []);
-      } catch (err) {
-        console.error("Error fetching friends:", err);
+        console.error("Data fetch error:", err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchFriends(); 1
+    fetchData();
   }, [user]);
 
-  const listenersAttachedRef = useRef(false); // ✅ Prevent duplicate listeners
-  const hasShownToastRef = useRef(false);
   useEffect(() => {
     if (!socket || !user?.id) return;
 
     const handleFriendRequest = () => {
-      console.log("🔥 Received socket event: friend_request_received");
-
-      // Guard clause
       if (hasShownToastRef.current) return;
-
-      setPendingCount(prev => prev + 1);
+      setPendingCount((prev) => prev + 1);
       toast.info("📥 You have a new friend request!");
       hasShownToastRef.current = true;
-
-      // Reset the flag after X seconds (optional, in case you want new requests later)
-      setTimeout(() => {
-        hasShownToastRef.current = false;
-      }, 5000); // or any interval
+      setTimeout(() => (hasShownToastRef.current = false), 5000);
     };
 
     const handleRequestAccepted = (newFriend) => {
-      setFriends(prev => {
-        const alreadyExists = prev.some(f => f._id === newFriend._id);
-        return alreadyExists ? prev : [...prev, newFriend];
+      setFriends((prev) => {
+        const exists = prev.some((f) => f._id === newFriend._id);
+        return exists ? prev : [...prev, newFriend];
       });
     };
 
-
     const handleFriendRemoved = ({ by }) => {
-      setFriends(prev => prev.filter(friend => friend._id !== by._id));
+      setFriends((prev) => prev.filter((f) => f._id !== by._id));
+      setRecentChats((prev) => prev.filter((chat) => chat.friend._id !== by._id));
     };
 
-    // ✅ Attach only once
     if (!listenersAttachedRef.current) {
       socket.on("friend_request_received", handleFriendRequest);
       socket.on("request_accepted", handleRequestAccepted);
       socket.on("friend_removed", handleFriendRemoved);
-      console.log("✅ Socket listeners attached exactly once");
       listenersAttachedRef.current = true;
     }
 
     return () => {
-      console.log("🧹 Cleaning up socket listeners...");
       socket.off("friend_request_received", handleFriendRequest);
       socket.off("request_accepted", handleRequestAccepted);
       socket.off("friend_removed", handleFriendRemoved);
-      listenersAttachedRef.current = false; // 👈 important!
+      listenersAttachedRef.current = false;
     };
   }, [socket, user?.id]);
+
+  const getFriendChatData = (friend) => {
+    const chat = recentChats.find((c) => c.friend._id === friend._id);
+    if (!chat) return { label: "🆕 New Friend", time: null };
+
+    const message = chat.latestMessage;
+    const preview = message?.caption?.trim() || (message ? "📷 Image" : "Start chatting!");
+    const time = new Date(chat.updatedAt).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+
+    return { label: preview, time };
+  };
+
+  const filteredFriends = friends.filter((friend) =>
+    friend.username.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
@@ -121,72 +123,87 @@ const ChatHome = () => {
 
         <h1 className="text-xl font-bold text-gray-800">Chats</h1>
 
-
         <button
           onClick={() => {
-            toast.info(
-              ({ closeToast }) => (
-                <div>
-                  <p>Are you sure you want to log out?</p>
-                  <div className="flex justify-end mt-2 gap-2">
-                    <button
-                      onClick={closeToast}
-                      className="text-sm text-gray-600 hover:underline"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={() => {
-                        logout();
-                        navigate("/");
-                        closeToast();
-                        toast.success("Logout successful!");
-                      }}
-                      className="text-sm text-red-600 font-semibold hover:underline"
-                    >
-                      Logout
-                    </button>
-                  </div>
+            toast.info(({ closeToast }) => (
+              <div>
+                <p>Are you sure you want to log out?</p>
+                <div className="flex justify-end mt-2 gap-2">
+                  <button
+                    onClick={closeToast}
+                    className="text-sm text-gray-600 hover:underline"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      logout();
+                      navigate("/");
+                      closeToast();
+                      toast.success("Logout successful!");
+                    }}
+                    className="text-sm text-red-600 font-semibold hover:underline"
+                  >
+                    Logout
+                  </button>
                 </div>
-              ),
-              { autoClose: false }
-            );
+              </div>
+            ), { autoClose: false });
           }}
           className="flex items-center gap-1 text-sm text-red-600 hover:underline"
         >
           <FiLogOut /> Logout
         </button>
+      </div>
 
+      {/* === SEARCH BAR === */}
+      <div className="px-4 py-2 bg-gray-50">
+        <div className="relative">
+          <FiSearch className="absolute left-3 top-2.5 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search friends..."
+            className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
       </div>
 
       {/* === CHAT LIST === */}
-      <div className="flex-grow px-4 py-6 overflow-y-auto">
+      <div className="flex-grow px-4 py-4 overflow-y-auto">
         {loading ? (
           <p className="text-center text-gray-500">Loading chats...</p>
-        ) : friends.length === 0 ? (
-          <p className="text-center text-gray-500">You have no friends yet 😢</p>
-
+        ) : filteredFriends.length === 0 ? (
+          <p className="text-center text-gray-500">No friends found.</p>
         ) : (
           <div className="space-y-4">
-            {friends.map((friend) => (
-              <div
-                key={friend._id}
-                onClick={() => navigate(`/chat/${friend._id}`)}
-                className="cursor-pointer bg-gray-50 p-4 rounded-lg shadow flex items-center justify-between hover:bg-gray-100"
-              >
-                <div className="flex items-center">
-                  <img
-                    src={friend.profileImage}
-                    alt={friend.username}
-                    className="w-8 h-8 rounded-full mr-2"
-                  />
-                  <span className="text-gray-800 font-semibold text-base">
-                    {friend.username}
-                  </span>
-                </div>
+            {filteredFriends.map((friend) => {
+              const { label, time } = getFriendChatData(friend);
 
-              </div>
-            ))}
+              return (
+                <div
+                  key={friend._id}
+                  onClick={() => navigate(`/chat/${friend._id}`)}
+                  className="cursor-pointer bg-gray-50 p-4 rounded-lg shadow flex items-center justify-between hover:bg-gray-100"
+                >
+                  <div className="flex items-center">
+                    <img
+                      src={friend.profileImage}
+                      alt={friend.username}
+                      className="w-9 h-9 rounded-full mr-3"
+                    />
+                    <div>
+                      <p className="text-gray-800 font-semibold text-base">
+                        {friend.username}
+                      </p>
+                      <p className="text-gray-500 text-sm truncate max-w-xs">{label}</p>
+                    </div>
+                  </div>
+                  {time && <span className="text-xs text-gray-400 ml-2">{time}</span>}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

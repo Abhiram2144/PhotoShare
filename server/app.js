@@ -8,6 +8,7 @@ const socketIo = require("socket.io");
 
 const authrouter = require('./routes/user');
 const relationRouter = require('./routes/relations');
+const chatRouter = require("./routes/chat");
 
 const server = http.createServer(app);
 
@@ -15,7 +16,7 @@ const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
     origin: "http://localhost:5173",
-    methods: ["GET", "POST", "DELETE", "PUT"],
+    methods: ["GET", "POST", "DELETE", "PUT", "PATCH"],
     credentials: true,
   },
 });
@@ -32,20 +33,20 @@ io.on("connection", (socket) => {
   });
 
 
-//  In a real-world app, never trust client-sent IDs. Users can impersonate others. Use JWT from client and verify it before joining room:
+  //  In a real-world app, never trust client-sent IDs. Users can impersonate others. Use JWT from client and verify it before joining room:
 
-// socket.on("register", async (token) => {
-//   try {
-//     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-//     const userId = decoded.id;
-//     socket.join(userId);
-//     connectedUsers.set(userId, socket.id);
-//   } catch (err) {
-//     console.error("⚠️ Invalid token on socket register");
-//     socket.disconnect();
-//   }
-// });
-// Update your client-side to emit the token instead of plain userId.
+  // socket.on("register", async (token) => {
+  //   try {
+  //     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  //     const userId = decoded.id;
+  //     socket.join(userId);
+  //     connectedUsers.set(userId, socket.id);
+  //   } catch (err) {
+  //     console.error("⚠️ Invalid token on socket register");
+  //     socket.disconnect();
+  //   }
+  // });
+  // Update your client-side to emit the token instead of plain userId.
 
   // Register socket to userId
   socket.on("register", (userId) => {
@@ -74,6 +75,20 @@ io.on("connection", (socket) => {
     io.to(to).emit("receive_image", { from: socket.id, image });
   });
 
+  // Chat
+  socket.on("join_chat", (chatId) => {
+    socket.join(chatId);
+    console.log(`🧃 Socket ${socket.id} joined chat room ${chatId}`);
+  });
+
+  socket.on("send_chat_message", ({ chatId, message }) => {
+    io.to(chatId).emit("new_message", message);
+  });
+
+  socket.on("react_message", ({ chatId, messageId, emoji, userId }) => {
+    io.to(chatId).emit("message_reacted", { messageId, emoji, userId });
+  });
+
   // Disconnect logic
   socket.on("disconnect", () => {
     console.log("🔴 Client disconnected:", socket.id);
@@ -100,6 +115,7 @@ app.set("io", io);
 // === ROUTES ===
 app.use("/api/auth", authrouter);
 app.use("/api/relations", relationRouter);
+app.use("/api/chat", chatRouter);
 
 // === ROOT ROUTE ===
 app.get("/", (req, res) => {
