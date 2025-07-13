@@ -4,16 +4,18 @@ import React, { useState } from "react";
 const ImageSendPopup = ({ onSend, onCancel, toUsername }) => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [caption, setCaption] = useState("");
+  const [sending, setSending] = useState(false);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) setSelectedImage(file);
   };
 
-  const handleSendClick = () => {
-    if (selectedImage) {
-      onSend({ file: selectedImage, caption });
-    }
+  const handleSend = async () => {
+    if (!selectedImage || sending) return;
+    setSending(true);
+    await onSend({ file: selectedImage, caption });
+    // We assume ChatRoom will close the popup
   };
 
   return (
@@ -39,14 +41,20 @@ const ImageSendPopup = ({ onSend, onCancel, toUsername }) => {
         />
 
         <div className="flex justify-end gap-2">
-          <button onClick={onCancel} className="text-sm text-gray-600">
+          <button
+            onClick={onCancel}
+            className="text-sm text-gray-600 hover:text-black"
+          >
             Cancel
           </button>
           <button
-            onClick={handleSendClick}
-            className="bg-red-600 text-white px-4 py-1 rounded"
+            onClick={handleSend}
+            disabled={!selectedImage || sending}
+            className={`w-full py-2 rounded-full font-semibold ${
+              sending ? "bg-gray-400" : "bg-red-600 hover:bg-red-700"
+            } text-white`}
           >
-            SEND
+            {sending ? "Sending..." : "Send"}
           </button>
         </div>
       </div>

@@ -86,7 +86,7 @@ const ChatHome = () => {
     if (!chat) return { label: "🆕 New Friend", time: null };
 
     const message = chat.latestMessage;
-    const preview = message?.caption?.trim() || (message ? "📷 Image" : "Start chatting!");
+    const preview =  (message ? "📷 Image" : "Start chatting!");
     const time = new Date(chat.updatedAt).toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",

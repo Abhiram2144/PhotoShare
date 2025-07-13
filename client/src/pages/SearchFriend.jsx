@@ -42,6 +42,9 @@ const SearchFriend = () => {
       <Navbar />
 
       <div className="max-w-xl mx-auto p-6">
+        <Link to="/chatHome" className=" hover:underline mb-6">
+          &lt; Back
+        </Link>
         <h2 className="text-2xl font-bold text-gray-800 mb-4 text-center">
           Search for your friends here
         </h2>

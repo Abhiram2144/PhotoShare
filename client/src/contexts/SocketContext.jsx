@@ -14,7 +14,7 @@ export const SocketProvider = ({ children }) => {
       socketRef.current = io("http://localhost:8000");
 
       socketRef.current.on("connect", () => {
-        console.log("🔌 Socket connected:", socketRef.current.id);
+        // console.log("🔌 Socket connected:", socketRef.current.id);
         socketRef.current.emit("register", user.id);
         setConnected(true);
       });

@@ -148,7 +148,7 @@ const UserProfile = () => {
                     {relationshipStatus === "friends" && (
                         <>
                             <button className="bg-red-500 text-white px-5 py-2 rounded-md hover:bg-red-600 transition text-sm" onClick={removeFriend}>Remove Friend</button>
-                            <button className="bg-green-500 text-white px-5 py-2 rounded-md hover:bg-green-600 transition text-sm" onClick={() => toast.info("Open chat - coming soon")}>Chat</button>
+                            <button className="bg-green-500 text-white px-5 py-2 rounded-md hover:bg-green-600 transition text-sm" onClick={() => navigate(`/chat/${id}`)}>Chat</button>
                         </>
                     )}
 

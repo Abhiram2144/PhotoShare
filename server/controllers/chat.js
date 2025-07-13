@@ -40,27 +40,25 @@ const sendMessage = async (req, res) => {
       fileName: `chat_${sender}_${Date.now()}`,
     });
 
-    const newMessage = await Message.create({
+    let newMessage = await Message.create({
       chat: chatId,
       sender,
-      imageUrl: uploadedImage.url,
-      imageId: uploadedImage.fileId,
+      content: uploadedImage.url,
       caption,
     });
 
-    const populatedMessage = await newMessage
-      .populate("sender", "username profileImage")
-      .execPopulate?.(); // older Mongoose; newer returns promise
+    newMessage = await newMessage.populate("sender", "username profileImage");
 
-    // Emit to chat room
-    req.io.to(chatId).emit("new_message", populatedMessage || newMessage);
+    // Emit to all users in chat room
+    req.app.get("io").to(chatId).emit("new_message", newMessage);
 
-    res.status(201).json({ success: true, message: populatedMessage || newMessage });
+    res.status(201).json({ success: true, message: newMessage });
   } catch (err) {
     console.error("❌ Error sending message:", err);
     res.status(500).json({ success: false, message: "Failed to send message", error: err.message });
   }
 };
+
 
 // === 3. Get All Messages in a Chat ===
 const getAllMessages = async (req, res) => {
