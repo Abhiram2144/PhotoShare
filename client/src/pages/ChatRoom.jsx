@@ -80,7 +80,12 @@ const ChatRoom = () => {
                     return !isMatch;
                 })
             );
-            setMessages((prev) => [...prev, message]);
+
+            setMessages((prev) => {
+                const alreadyExists = prev.some((m) => m._id === message._id);
+                return alreadyExists ? prev : [...prev, message];
+            });
+            
         };
 
         socket.on("new_message", handleNewMessage);
@@ -103,7 +108,7 @@ const ChatRoom = () => {
             createdAt: new Date(),
             isPending: true,
         };
-        setPendingMessages((prev) => [...prev, tempMessage]);
+        // setPendingMessages((prev) => [...prev, tempMessage]);
 
         const formData = new FormData();
         formData.append("chatId", chatId);
@@ -119,8 +124,8 @@ const ChatRoom = () => {
             });
 
             // Remove pending and replace with real one
-            setPendingMessages((prev) => prev.filter((msg) => msg._id !== tempId));
-            setMessages((prev) => [...prev, data.message]);
+            // setPendingMessages((prev) => prev.filter((msg) => msg._id !== tempId));
+            // setMessages((prev) => [...prev, data.message]);
 
         } catch (err) {
             console.error("❌ Error sending message", err);
