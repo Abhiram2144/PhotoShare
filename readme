@@ -1,0 +1,70 @@
+# 📸 SnapTalk — A Real-Time Photo Chat Application
+
+SnapTalk is a **mobile-first**, real-time **photo-based chat app** that allows users to connect with friends, send images with captions, react using emojis, and maintain meaningful asynchronous photo conversations. The app blends the social intimacy of photo sharing with a minimalist chat experience — **no texts, just moments**.
+
+---
+
+## 🚀 Features Implemented
+
+### 🧑‍🤝‍🧑 Friend System
+- **User authentication**: Signup/Login via secure API.
+- **Friend requests**: Search users, send requests, accept/decline.
+- **Mutual connection logic**: Only mutually accepted friends can chat.
+- **Real-time socket events**: `friend_request_received`, `request_accepted`, `friend_removed`.
+
+### 💬 Chat System
+- **One-to-one chats only**.
+- **Photo-based messaging**: Send images with optional captions.
+- **Optimistic UI**: Sent messages appear instantly before server confirms.
+- **Reactions**: React to messages with emoji pickers.
+- **Real-time communication** using Socket.IO.
+- **Message delivery and sync** handled through backend event emission.
+
+### 📱 Mobile-First UX
+- **Responsive UI** using Tailwind CSS.
+- **Minimalist chat interface** optimized for emotion-rich interaction.
+- **Modal-based send flow** for image + caption.
+- **“New Friend” tag** if no prior messages exist.
+
+### 🔔 Notifications & Feedback
+- **Live friend request notification** on homepage.
+- **Global toast when friend request accepted**.
+- **Reactions trigger live message update**.
+
+---
+
+## ⚙️ Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Frontend | React.js, Tailwind CSS |
+| Backend | Node.js, Express |
+| Real-Time | Socket.IO |
+| Image Storage | [ImageKit.io](https://imagekit.io/) |
+| Authentication | Custom Token-Based Auth |
+| Data Store | MongoDB (Mongoose ORM) |
+
+---
+
+## 🛠️ Remaining Work
+
+1. "**clean ui**
+
+2. **🆕 Chat Badge**: _Display “new” badge on homepage for unseen messages_  
+   - Needs a `seen` flag or `lastSeenAt` tracking on a per-user basis in chat.
+
+3. **📣 Global Notifications**: _Trigger a toast when a new message arrives globally_  
+   - Example: `"New image received from [username]"`, not just on ChatRoom page.
+
+4. **📤 Chat Preview State**: _In recent chats, label messages as “Sent” or “Received”_  
+   - Based on `latestMessage.sender._id === user.id`.
+
+5. **🧹 Clear Chat**: _Add a "Clear Chat" option per user per chat_  
+   - Should only clear user's view (not delete for both). Likely involves a `clearedAt` timestamp in chat-user metadata.
+
+6. **🧨 Auto-delete**: _Delete chats & media after 2 days_  
+   - Requires cron job or TTL logic for chat messages and scheduled deletion via ImageKit API.
+
+
+---
+
