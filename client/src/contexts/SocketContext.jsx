@@ -11,7 +11,7 @@ export const SocketProvider = ({ children }) => {
 
   useEffect(() => {
     if (user && !socketRef.current) {
-      socketRef.current = io("http://localhost:8000");
+      socketRef.current = io(`${import.meta.env.VITE_BACKEND_URL}`);
 
       socketRef.current.on("connect", () => {
         // console.log("🔌 Socket connected:", socketRef.current.id);
