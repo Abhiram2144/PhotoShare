@@ -22,27 +22,46 @@ const ChatRoom = () => {
 
     const bottomRef = useRef(null);
 
-    // Scroll to latest message after messages update
-    useEffect(() => {
-        if (!loading && messages.length > 0) {
-            setTimeout(() => {
-                bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-            }, 100);
+    const enrichSender = (msg) => {
+        if (!msg.sender || typeof msg.sender === "string") {
+            const isOwn = msg.sender === user.id;
+            return {
+                ...msg,
+                sender: {
+                    _id: msg.sender,
+                    username: isOwn ? user.username : friend?.username,
+                    profileImage: isOwn ? user.profileImage : friend?.profileImage,
+                },
+            };
         }
-    }, [loading, messages]);
+        return msg;
+    };
+
+    // Auto-scroll when messages or pendingMessages update
+    useEffect(() => {
+        if (!loading) {
+            const scrollToBottom = () => {
+                bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+            };
+            // Delay to wait for render
+            setTimeout(scrollToBottom, 50);
+        }
+    }, [messages, pendingMessages, loading]);
+
 
     useEffect(() => {
         if (!socket || !chatId) return;
 
         const handleReaction = ({ message }) => {
+            const enriched = enrichSender(message);
             setMessages(prev =>
-                prev.map(m => (m._id === message._id ? message : m))
+                prev.map(m => (m._id === enriched._id ? enriched : m))
             );
         };
 
         socket.on("message_reacted", handleReaction);
         return () => socket.off("message_reacted", handleReaction);
-    }, [socket, chatId]);
+    }, [socket, chatId, friend]);
 
     useEffect(() => {
         if (!socket || !chatId) return;
@@ -71,7 +90,7 @@ const ChatRoom = () => {
                     `/chat/message/${data.chat._id}`,
                     getAuthHeader()
                 );
-                setMessages(msgData.messages);
+                setMessages(msgData.messages.map(enrichSender));
             } catch (err) {
                 console.error("❌ Error loading chat", err);
             } finally {
@@ -92,39 +111,47 @@ const ChatRoom = () => {
         if (!socket || !chatId) return;
 
         const handleNewMessage = (message) => {
+            const enriched = enrichSender(message);
+
             setPendingMessages(prev =>
                 prev.filter(msg =>
-                    !(msg.sender._id === message.sender._id &&
-                        msg.caption === message.caption &&
+                    !(msg.sender._id === enriched.sender._id &&
+                        msg.caption === enriched.caption &&
                         msg.isPending)
                 )
             );
 
             setMessages(prev =>
-                prev.some(m => m._id === message._id)
+                prev.some(m => m._id === enriched._id)
                     ? prev
-                    : [...prev, message]
+                    : [...prev, enriched]
             );
         };
 
         socket.on("new_message", handleNewMessage);
         return () => socket.off("new_message", handleNewMessage);
-    }, [socket, chatId]);
+    }, [socket, chatId, friend]);
 
     const handleSendImage = async ({ file, caption }) => {
-        if (!file || !chatId) return;
+        if (!file || !chatId || !socket) return;
 
         const tempId = `temp-${Date.now()}`;
         const localPreview = URL.createObjectURL(file);
 
         const tempMessage = {
             _id: tempId,
-            sender: { _id: user.id, username: user.username, profileImage: user.profileImage },
+            sender: {
+                _id: user.id,
+                username: user.username,
+                profileImage: user.profileImage,
+            },
             content: localPreview,
             caption,
             createdAt: new Date(),
             isPending: true,
         };
+
+        setPendingMessages(prev => [...prev, tempMessage]);
 
         const formData = new FormData();
         formData.append("chatId", chatId);
@@ -132,11 +159,16 @@ const ChatRoom = () => {
         formData.append("caption", caption);
 
         try {
-            await axios.post("/chat/message/send", formData, {
+            const { data } = await axios.post("/chat/message/send", formData, {
                 headers: {
                     ...getAuthHeader().headers,
                     "Content-Type": "multipart/form-data",
                 },
+            });
+
+            socket.emit("send_chat_message", {
+                chatId,
+                message: data.message,
             });
         } catch (err) {
             console.error("❌ Error sending message", err);
@@ -153,7 +185,7 @@ const ChatRoom = () => {
     return (
         <div className="min-h-screen flex flex-col bg-white">
             <div className="flex items-center p-4 border-b bg-gray-100">
-                <button onClick={() => navigate(-1)} className="text-lg">&larr; Back</button>
+                <button onClick={() => navigate(`/chatHome`)} className="text-lg">&larr; Back</button>
                 <img
                     src={friend?.profileImage}
                     alt={friend?.username}
@@ -177,7 +209,7 @@ const ChatRoom = () => {
                         <MessageBubble
                             key={msg._id}
                             message={{ ...msg, currentUserId: user.id }}
-                            isOwn={msg.sender._id === user.id}
+                            isOwn={msg.sender?._id === user.id || msg.sender === user.id}
                             isPending={msg.isPending}
                             failed={msg.failed}
                         />
