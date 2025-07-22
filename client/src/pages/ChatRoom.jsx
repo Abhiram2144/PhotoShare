@@ -185,7 +185,7 @@ const ChatRoom = () => {
     return (
         <div className="min-h-screen flex flex-col bg-white">
             <div className="flex items-center p-4 border-b bg-gray-100">
-                <button onClick={() => navigate(`/chatHome`)} className="text-lg">&larr; Back</button>
+                <button onClick={() => navigate(`/chatHome`)} className="text-lg hover:cursor-pointer">&larr; Back</button>
                 <img
                     src={friend?.profileImage}
                     alt={friend?.username}

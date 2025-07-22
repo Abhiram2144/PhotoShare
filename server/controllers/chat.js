@@ -48,9 +48,13 @@ const sendMessage = async (req, res) => {
       imageId: uploadedImage.fileId,
     });
 
+    // populate sender info for frontend display
     newMessage = await newMessage.populate("sender", "username profileImage");
 
-    // Emit to all users in chat room
+    // ✅ update latestMessage in the Chat
+    await Chat.findByIdAndUpdate(chatId, { latestMessage: newMessage._id });
+
+    // emit the new message to socket room
     req.app.get("io").to(chatId).emit("new_message", newMessage);
 
     res.status(201).json({ success: true, message: newMessage });
@@ -59,6 +63,7 @@ const sendMessage = async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to send message", error: err.message });
   }
 };
+
 
 
 // === 3. Get All Messages in a Chat ===
@@ -169,7 +174,7 @@ const getRecentChats = async (req, res) => {
     .populate("participants", "username profileImage")
     .populate({
       path: "latestMessage",
-      populate: { path: "sender", select: "username profileImage" }
+      populate: { path: "sender", select: "username profileImage _id" }
     })
     .sort({ updatedAt: -1 });
 

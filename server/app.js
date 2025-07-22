@@ -15,7 +15,7 @@ const server = http.createServer(app);
 // === SOCKET.IO SETUP ===
 const io = socketIo(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: `${process.env.CLIENT_URL}`,
     methods: ["GET", "POST", "DELETE", "PUT", "PATCH"],
     credentials: true,
   },
@@ -25,12 +25,12 @@ const connectedUsers = new Map();
 
 
 io.on("connection", (socket) => {
-  console.log("🟢 New client connected:", socket.id);
+  // console.log("🟢 New client connected:", socket.id);
 
   // Log all events
-  socket.onAny((event, ...args) => {
-    console.log(`⚡️ Received event: ${event}`, args);
-  });
+  // socket.onAny((event, ...args) => {
+  //   console.log(`⚡️ Received event: ${event}`, args);
+  // });
 
 
   //  In a real-world app, never trust client-sent IDs. Users can impersonate others. Use JWT from client and verify it before joining room:
@@ -52,7 +52,7 @@ io.on("connection", (socket) => {
   socket.on("register", (userId) => {
     socket.join(userId);
     connectedUsers.set(userId, socket.id);
-    console.log(`📥 User ${userId} joined their socket room`);
+    // console.log(`📥 User ${userId} joined their socket room`);
   });
 
   // Friend request sent
@@ -78,7 +78,7 @@ io.on("connection", (socket) => {
   // Chat
   socket.on("join_chat", (chatId) => {
     socket.join(chatId);
-    console.log(`🧃 Socket ${socket.id} joined chat room ${chatId}`);
+    // console.log(`🧃 Socket ${socket.id} joined chat room ${chatId}`);
   });
 
   socket.on("send_chat_message", ({ chatId, message }) => {
@@ -102,7 +102,7 @@ io.on("connection", (socket) => {
 });
 
 // === MIDDLEWARES ===
-app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
+app.use(cors({ origin: `${process.env.CLIENT_URL}`, credentials: true }));
 app.use(express.json());
 
 // Inject IO to request object for route-level access (already good)

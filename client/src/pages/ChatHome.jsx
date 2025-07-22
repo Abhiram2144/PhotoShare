@@ -33,6 +33,8 @@ const ChatHome = () => {
         setFriends(friendsRes.data.friends || []);
         setRecentChats(chatsRes.data.chats || []);
         setPendingCount(pendingRes.data.pending?.length || 0);
+        console.log(chatsRes.data.chats);
+        
       } catch (err) {
         console.error("Data fetch error:", err);
       } finally {
@@ -82,21 +84,31 @@ const ChatHome = () => {
   }, [socket, user?.id]);
 
   const getFriendChatData = (friend) => {
+    // console.log(recentChats)
     const chat = recentChats.find((c) => c.friend._id === friend._id);
     if (!chat) return { label: "🆕 New Friend", time: null };
 
     const message = chat.latestMessage;
-    const preview =  (message ? "📷 Image" : "Start chatting!");
-    const time = new Date(chat.updatedAt).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
+    if (!message) return { label: "Start chatting!", time: null };
 
-    return { label: preview, time };
+    const isOwn = message.sender._id === user.id;
+    const senderName = isOwn ? "You" : chat.friend.username;
+    const preview = "📷 Image";
+
+    const msgDate = new Date(message.createdAt);
+    const today = new Date();
+    const isToday = msgDate.toDateString() === today.toDateString();
+    const time = isToday
+      ? msgDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })
+      : msgDate.toLocaleDateString([], { month: "short", day: "numeric" });
+
+
+    return {
+      label: `${senderName}: ${preview}`,
+      time,
+    };
   };
+
 
   const filteredFriends = friends.filter((friend) =>
     friend.username.toLowerCase().includes(searchTerm.toLowerCase())
