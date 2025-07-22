@@ -35,7 +35,7 @@ const UserContextProvider = ({ children }) => {
   try {
     const { data } = await axios.get("/auth/me", getAuthHeader());
     setUser(data.user); // this must include profileImage!
-    console.log("Refreshed user:", data.user);
+    // console.log("Refreshed user:", data.user);
   } catch (err) {
     console.error("Failed to refresh user:", err);
   }

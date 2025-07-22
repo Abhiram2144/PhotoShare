@@ -71,7 +71,7 @@ io.on("connection", (socket) => {
 
   // Image send (already in your code)
   socket.on("send_image", ({ to, image }) => {
-    console.log(`📤 Sending image to ${to}`);
+    // console.log(`📤 Sending image to ${to}`);
     io.to(to).emit("receive_image", { from: socket.id, image });
   });
 
@@ -124,7 +124,7 @@ app.get("/", (req, res) => {
 
 // === DB + SERVER START ===
 server.listen(8000, () => {
-  console.log("🚀 Server running on port 8000");
+  // console.log("🚀 Server running on port 8000");
   mongoose.connect(`mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.ucc4fkx.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`)
     .then(() => console.log("✅ Connected to MongoDB"))
     .catch((err) => console.error("❌ MongoDB connection error:", err));

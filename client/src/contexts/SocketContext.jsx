@@ -20,7 +20,7 @@ export const SocketProvider = ({ children }) => {
       });
 
       socketRef.current.off("disconnect", () => {
-        console.log("🛑 Socket disconnected");
+        // console.log("🛑 Socket disconnected");
         setConnected(false);
       });
     }
