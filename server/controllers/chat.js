@@ -45,6 +45,7 @@ const sendMessage = async (req, res) => {
       sender,
       content: uploadedImage.url,
       caption,
+      imageId: uploadedImage.fileId,
     });
 
     newMessage = await newMessage.populate("sender", "username profileImage");
@@ -81,30 +82,72 @@ const reactToMessage = async (req, res) => {
   const { emoji } = req.body;
   const userId = req.userId;
 
+  if (!emoji || !messageId) {
+    return res.status(400).json({ error: "Missing emoji or messageId" });
+  }
+
   try {
     const message = await Message.findById(messageId);
-    if (!message) return res.status(404).json({ success: false, message: "Message not found" });
+    if (!message) return res.status(404).json({ error: "Message not found" });
 
-    const existing = message.reactions.find(r => r.user.toString() === userId);
-    if (existing) {
-      existing.emoji = emoji; // update reaction
+    // Replace existing reaction from the user
+    const existingIndex = message.reactions.findIndex(r => r.userId.toString() === userId);
+    if (existingIndex !== -1) {
+      message.reactions[existingIndex].emoji = emoji;
     } else {
-      message.reactions.push({ user: userId, emoji });
+      message.reactions.push({ userId, emoji });
     }
 
     await message.save();
 
-    req.io.to(message.chat.toString()).emit("message_reacted", {
-      messageId,
-      emoji,
-      userId,
-    });
+    // Emit update to chat room
+    const io = req.app.get("io");
+    io.to(message.chat.toString()).emit("message_reacted", { message });
 
-    res.status(200).json({ success: true, message: "Reaction updated" });
+    res.json({ message });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Failed to react", error: err.message });
+    console.error("💥 Error reacting to message", err);
+    res.status(500).json({ message: "Failed to react", error: err.message });
   }
 };
+
+
+// delete a message
+const deleteMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const userId = req.userId;
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ message: "Message not found" });
+    }
+    console.log("Came till here")
+    if (message.sender.toString() !== userId) {
+      return res.status(403).json({ message: "You can only delete your own messages" });
+    }
+
+    if (message.imageId) {
+      await imagekit.deleteFile(message.imageId);
+    }
+
+    await Message.findByIdAndDelete(messageId);
+
+    // Optional: Notify the other user via socket (if you track chat rooms/users)
+    const io = req.app.get("io");
+    io.to(message.chat.toString()).emit("message_deleted", {
+      messageId,
+      chatId: message.chat.toString(),
+    });
+
+    res.json({ message: "Message deleted successfully" });
+
+  } catch (err) {
+    console.error("💥 Error deleting message", err);
+    res.status(500).json({ message: "Failed to delete message", error: err.message });
+  }
+};
+
 
 // In chatController.js
 const getRecentChats = async (req, res) => {
@@ -135,5 +178,6 @@ module.exports = {
   sendMessage,
   getAllMessages,
   reactToMessage,
-  getRecentChats
+  getRecentChats,
+  deleteMessage
 };

@@ -7,7 +7,8 @@ const {
   sendMessage,
   getAllMessages,
   reactToMessage,
-  getRecentChats
+  getRecentChats,
+  deleteMessage
 } = require("../controllers/chat");
 
 // === MULTER SETUP ===
@@ -20,4 +21,5 @@ router.post("/message/send", checkAuth, upload.single("image"), sendMessage); //
 router.get("/message/:chatId", checkAuth, getAllMessages); // get all messages
 router.patch("/message/react/:messageId", checkAuth, reactToMessage); // react to message
 router.get("/recent", checkAuth, getRecentChats); // get recent chats
+router.delete("/message/delete-message/:messageId", checkAuth, deleteMessage);
 module.exports = router;

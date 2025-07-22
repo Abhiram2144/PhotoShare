@@ -16,6 +16,10 @@ const messageSchema = new mongoose.Schema({
     type: String, // Image URL
     required: true
   },
+  imageId: {
+    type: String,
+    required: true
+  },
   caption: {
     type: String,
     default: ""
@@ -23,7 +27,8 @@ const messageSchema = new mongoose.Schema({
   reactions: [
     {
       userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-      emoji: { type: String } // emoji unicode string
+      emoji: String,
+      timestamp: { type: Date, default: Date.now }
     }
   ],
   createdAt: {

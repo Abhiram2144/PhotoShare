@@ -1,57 +1,79 @@
-// components/MessageBubble.jsx
-import React, { useState } from "react";
+import React, { useContext, useState } from "react";
 import EmojiPickerPopup from "./EmojiPickerPopup";
-
+import { UserContext } from "../contexts/UserContext";
+import axios from "../components/api";
+import { toast } from "react-toastify";
 const MessageBubble = ({ message, isOwn, isPending, failed }) => {
-  const [showReactions, setShowReactions] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const { getAuthHeader, user } = useContext(UserContext);
+  const userReaction = message.reactions?.find(r => r.userId === user.id); 
+
+  const handleReactionClick = () => setShowEmojiPicker(true);
+  const handleDeleteMessage = async () => {
+    if (!window.confirm("Are you sure you want to delete this message?")) return;
+    try {
+      
+      await axios.delete(`/chat/message/delete-message/${message._id}`, getAuthHeader());
+      toast.success("Message deleted");
+    } catch (err) {
+      console.error("❌ Error deleting message", err);
+    }
+  };
+  const handleSelectEmoji = async (emoji) => {
+    setShowEmojiPicker(false);
+    try {
+      await axios.patch(`/chat/message/react/${message._id}`, { emoji }, getAuthHeader());
+    } catch (err) {
+      console.error("❌ Failed to react to message", err);
+    }
+  };
 
   return (
     <div className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
-      <div className="relative max-w-xs">
-        <img
-          src={message.content}
-          alt="msg"
-          className="w-48 h-auto rounded-md"
-        />
-        {message.caption && (
-          <p className="mt-1 text-sm bg-gray-200 px-2 py-1 rounded">
-            {message.caption}
-          </p>
-        )}
-        {isPending && (
-          <p className="text-xs text-gray-400 mt-1 flex items-center">
-            <svg className="animate-spin h-4 w-4 mr-1 text-gray-400" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-            Sending...
-          </p>
+      <div className="relative">
+        <div className={`p-2 rounded-lg ${isOwn ? "bg-blue-100" : "bg-gray-100"} max-w-xs`}>
+          <img src={message.content} alt="sent" className="rounded-lg mb-1 max-w-full" />
+          {message.caption && <p className="text-sm mt-1">{message.caption}</p>}
+
+          <div className="text-xs mt-2 flex items-center justify-between">
+            <span className="text-gray-400">
+              {new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              {failed && " ❌"}
+            </span>
+            <button
+              onClick={handleReactionClick}
+              className="ml-2 text-gray-500 hover:text-black text-sm"
+            >
+              {isOwn? "": userReaction ? userReaction.emoji : "React"}
+            </button>
+            {isOwn && !isPending && !failed && (
+              <button
+                onClick={handleDeleteMessage}
+                className="text-red-500 hover:text-red-700 text-sm ml-2"
+              >
+                Delete
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Reactions row (like WhatsApp) */}
+        {message.reactions?.length > 0 && (
+          <div className="mt-1 flex gap-1 px-2">
+            {message.reactions.map((r, index) => (
+              <span key={index} className="text-xl">{r.emoji}</span>
+            ))}
+          </div>
         )}
 
-        {failed && (
-          <p className="text-xs text-red-500 mt-1">❌ Failed to send</p>
-        )}
-        <p className="text-xs text-gray-500 mt-1">
-          {new Date(message.createdAt).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-        </p>
-
-        {/* React button */}
-        <button
-          onClick={() => setShowReactions((prev) => !prev)}
-          className="absolute top-0 right-0 bg-white p-1 rounded-full shadow"
-        >
-          😊
-        </button>
-
-        {/* Popup */}
-        {showReactions && (
-          <EmojiPickerPopup
-            messageId={message._id}
-            onClose={() => setShowReactions(false)}
-          />
+        {showEmojiPicker && (
+          <div className="absolute bottom-full left-0 z-50">
+            <EmojiPickerPopup
+              messageId={message._id}
+              onSelect={handleSelectEmoji}
+              onClose={() => setShowEmojiPicker(false)}
+            />
+          </div>
         )}
       </div>
     </div>

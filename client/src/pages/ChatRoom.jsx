@@ -22,12 +22,39 @@ const ChatRoom = () => {
 
     const bottomRef = useRef(null);
 
-    // Scroll to bottom on new messages
+    // Scroll to latest message after messages update
     useEffect(() => {
-        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [messages]);
+        if (!loading && messages.length > 0) {
+            setTimeout(() => {
+                bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+            }, 100);
+        }
+    }, [loading, messages]);
 
-    // Fetch chat and messages
+    useEffect(() => {
+        if (!socket || !chatId) return;
+
+        const handleReaction = ({ message }) => {
+            setMessages(prev =>
+                prev.map(m => (m._id === message._id ? message : m))
+            );
+        };
+
+        socket.on("message_reacted", handleReaction);
+        return () => socket.off("message_reacted", handleReaction);
+    }, [socket, chatId]);
+
+    useEffect(() => {
+        if (!socket || !chatId) return;
+
+        const handleDeletedMessage = ({ messageId }) => {
+            setMessages(prev => prev.filter(m => m._id !== messageId));
+        };
+
+        socket.on("message_deleted", handleDeletedMessage);
+        return () => socket.off("message_deleted", handleDeletedMessage);
+    }, [socket, chatId]);
+
     useEffect(() => {
         const fetchChat = async () => {
             try {
@@ -37,7 +64,7 @@ const ChatRoom = () => {
                     getAuthHeader()
                 );
                 setChatId(data.chat._id);
-                const other = data.chat.participants.find((p) => p._id !== user.id);
+                const other = data.chat.participants.find(p => p._id !== user.id);
                 setFriend(other);
 
                 const { data: msgData } = await axios.get(
@@ -55,51 +82,41 @@ const ChatRoom = () => {
         fetchChat();
     }, [friendId]);
 
-    // Listen for real-time incoming messages
-    // Only edited parts are shown
-
-    // 🚨 Place this effect after chatId is set
     useEffect(() => {
         if (socket && chatId) {
             socket.emit("join_chat", chatId);
         }
     }, [socket, chatId]);
 
-    // 👇 Inside useEffect: socket listener for real-time incoming messages
     useEffect(() => {
         if (!socket || !chatId) return;
 
         const handleNewMessage = (message) => {
-            setPendingMessages((prevPending) =>
-                prevPending.filter((msg) => {
-                    // Remove pending message if it's from the same user and has the same caption
-                    const isMatch =
-                        msg.sender._id === message.sender._id &&
+            setPendingMessages(prev =>
+                prev.filter(msg =>
+                    !(msg.sender._id === message.sender._id &&
                         msg.caption === message.caption &&
-                        msg.isPending;
-                    return !isMatch;
-                })
+                        msg.isPending)
+                )
             );
 
-            setMessages((prev) => {
-                const alreadyExists = prev.some((m) => m._id === message._id);
-                return alreadyExists ? prev : [...prev, message];
-            });
-            
+            setMessages(prev =>
+                prev.some(m => m._id === message._id)
+                    ? prev
+                    : [...prev, message]
+            );
         };
 
         socket.on("new_message", handleNewMessage);
         return () => socket.off("new_message", handleNewMessage);
     }, [socket, chatId]);
 
-    // ✅ When sending image: let backend trigger socket; no need to manually emit
     const handleSendImage = async ({ file, caption }) => {
         if (!file || !chatId) return;
 
         const tempId = `temp-${Date.now()}`;
         const localPreview = URL.createObjectURL(file);
 
-        // Show optimistic "sending" message
         const tempMessage = {
             _id: tempId,
             sender: { _id: user.id, username: user.username, profileImage: user.profileImage },
@@ -108,7 +125,6 @@ const ChatRoom = () => {
             createdAt: new Date(),
             isPending: true,
         };
-        // setPendingMessages((prev) => [...prev, tempMessage]);
 
         const formData = new FormData();
         formData.append("chatId", chatId);
@@ -116,21 +132,16 @@ const ChatRoom = () => {
         formData.append("caption", caption);
 
         try {
-            const { data } = await axios.post("/chat/message/send", formData, {
+            await axios.post("/chat/message/send", formData, {
                 headers: {
                     ...getAuthHeader().headers,
                     "Content-Type": "multipart/form-data",
                 },
             });
-
-            // Remove pending and replace with real one
-            // setPendingMessages((prev) => prev.filter((msg) => msg._id !== tempId));
-            // setMessages((prev) => [...prev, data.message]);
-
         } catch (err) {
             console.error("❌ Error sending message", err);
-            setPendingMessages((prev) =>
-                prev.map((msg) =>
+            setPendingMessages(prev =>
+                prev.map(msg =>
                     msg._id === tempId ? { ...msg, failed: true } : msg
                 )
             );
@@ -139,16 +150,8 @@ const ChatRoom = () => {
         }
     };
 
-
-    useEffect(() => {
-        if (socket && chatId) {
-            socket.emit("join_chat", chatId);
-        }
-    }, [socket, chatId]);
-
     return (
         <div className="min-h-screen flex flex-col bg-white">
-            {/* === Header === */}
             <div className="flex items-center p-4 border-b bg-gray-100">
                 <button onClick={() => navigate(-1)} className="text-lg">&larr; Back</button>
                 <img
@@ -164,7 +167,6 @@ const ChatRoom = () => {
                 </span>
             </div>
 
-            {/* === Messages === */}
             <div className="flex-grow overflow-y-auto p-4 space-y-4 max-h-[calc(100vh-150px)] scrollbar-thin scrollbar-thumb-gray-300">
                 {loading ? (
                     <p className="text-center text-gray-500">Loading messages...</p>
@@ -174,7 +176,7 @@ const ChatRoom = () => {
                     [...messages, ...pendingMessages].map((msg) => (
                         <MessageBubble
                             key={msg._id}
-                            message={msg}
+                            message={{ ...msg, currentUserId: user.id }}
                             isOwn={msg.sender._id === user.id}
                             isPending={msg.isPending}
                             failed={msg.failed}
@@ -184,7 +186,6 @@ const ChatRoom = () => {
                 <div ref={bottomRef}></div>
             </div>
 
-            {/* === Fixed SEND Button === */}
             <div className="p-4 bg-gray-100 border-t">
                 <button
                     onClick={() => setShowPopup(true)}
@@ -194,7 +195,6 @@ const ChatRoom = () => {
                 </button>
             </div>
 
-            {/* === Modal: Send Image + Caption === */}
             {showPopup && (
                 <ImageSendPopup
                     onSend={handleSendImage}
