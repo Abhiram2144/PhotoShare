@@ -56,13 +56,10 @@ SnapTalk is a **mobile-first**, real-time **photo-based chat app** that allows u
 3. **📣 Global Notifications**: _Trigger a toast when a new message arrives globally_  
    - Example: `"New image received from [username]"`, not just on ChatRoom page.
 
-4. **📤 Chat Preview State**: _In recent chats, label messages as “Sent” or “Received”_  
-   - Based on `latestMessage.sender._id === user.id`.
-
-5. **🧹 Clear Chat**: _Add a "Clear Chat" option per user per chat_  
+4. **🧹 Clear Chat**: _Add a "Clear Chat" option per user per chat_  
    - Should only clear user's view (not delete for both). Likely involves a `clearedAt` timestamp in chat-user metadata.
 
-6. **🧨 Auto-delete**: _Delete chats & media after 2 days_  
+5. **🧨 Auto-delete**: _Delete chats & media after 2 days_  
    - Requires cron job or TTL logic for chat messages and scheduled deletion via ImageKit API.
 
 
