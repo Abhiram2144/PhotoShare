@@ -9,9 +9,13 @@ export const SocketProvider = ({ children }) => {
   const socketRef = useRef(null);
   const [connected, setConnected] = useState(false);
 
+
   useEffect(() => {
     if (user && !socketRef.current) {
-      socketRef.current = io("http://localhost:8000");
+      socketRef.current = io(`${import.meta.env.VITE_BACKEND_URL}`, {
+        transports: ["websocket"], // Add this here too for safety
+        withCredentials: true
+      });
 
       socketRef.current.on("connect", () => {
         // console.log("🔌 Socket connected:", socketRef.current.id);
@@ -20,7 +24,7 @@ export const SocketProvider = ({ children }) => {
       });
 
       socketRef.current.off("disconnect", () => {
-        console.log("🛑 Socket disconnected");
+        // console.log("🛑 Socket disconnected");
         setConnected(false);
       });
     }

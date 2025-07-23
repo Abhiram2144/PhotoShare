@@ -48,9 +48,13 @@ const sendMessage = async (req, res) => {
       imageId: uploadedImage.fileId,
     });
 
+    // populate sender info for frontend display
     newMessage = await newMessage.populate("sender", "username profileImage");
 
-    // Emit to all users in chat room
+    // ✅ update latestMessage in the Chat
+    await Chat.findByIdAndUpdate(chatId, { latestMessage: newMessage._id });
+
+    // emit the new message to socket room
     req.app.get("io").to(chatId).emit("new_message", newMessage);
 
     res.status(201).json({ success: true, message: newMessage });
@@ -59,6 +63,7 @@ const sendMessage = async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to send message", error: err.message });
   }
 };
+
 
 
 // === 3. Get All Messages in a Chat ===
@@ -82,25 +87,39 @@ const reactToMessage = async (req, res) => {
   const { emoji } = req.body;
   const userId = req.userId;
 
-  if (!emoji || !messageId) {
-    return res.status(400).json({ error: "Missing emoji or messageId" });
+  if (!messageId) {
+    return res.status(400).json({ error: "Missing messageId" });
   }
 
   try {
     const message = await Message.findById(messageId);
     if (!message) return res.status(404).json({ error: "Message not found" });
 
-    // Replace existing reaction from the user
-    const existingIndex = message.reactions.findIndex(r => r.userId.toString() === userId);
-    if (existingIndex !== -1) {
-      message.reactions[existingIndex].emoji = emoji;
+    const existingIndex = message.reactions.findIndex(
+      (r) => r.userId.toString() === userId
+    );
+
+    let updated = false;
+
+    if (emoji === "__UNREACT__") {
+      if (existingIndex !== -1) {
+        message.reactions.splice(existingIndex, 1);
+        updated = true;
+      }
     } else {
-      message.reactions.push({ userId, emoji });
+      if (existingIndex !== -1) {
+        message.reactions[existingIndex].emoji = emoji;
+      } else {
+        message.reactions.push({ userId, emoji });
+      }
+      updated = true;
     }
+
+    if (!updated) return res.json({ message }); // no changes, no broadcast
 
     await message.save();
 
-    // Emit update to chat room
+    // Broadcast updated message to room
     const io = req.app.get("io");
     io.to(message.chat.toString()).emit("message_reacted", { message });
 
@@ -110,6 +129,7 @@ const reactToMessage = async (req, res) => {
     res.status(500).json({ message: "Failed to react", error: err.message });
   }
 };
+
 
 
 // delete a message
@@ -122,7 +142,6 @@ const deleteMessage = async (req, res) => {
     if (!message) {
       return res.status(404).json({ message: "Message not found" });
     }
-    console.log("Came till here")
     if (message.sender.toString() !== userId) {
       return res.status(403).json({ message: "You can only delete your own messages" });
     }
@@ -155,7 +174,7 @@ const getRecentChats = async (req, res) => {
     .populate("participants", "username profileImage")
     .populate({
       path: "latestMessage",
-      populate: { path: "sender", select: "username profileImage" }
+      populate: { path: "sender", select: "username profileImage _id" }
     })
     .sort({ updatedAt: -1 });
 

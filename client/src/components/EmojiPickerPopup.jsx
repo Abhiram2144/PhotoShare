@@ -1,4 +1,3 @@
-// components/EmojiPickerPopup.jsx
 import React, { useState } from "react";
 import axios from "./api";
 import { useContext } from "react";
@@ -8,7 +7,7 @@ const emojiOptions = ["😂", "❤️", "👍", "🔥", "😢", "😲"];
 
 const EmojiPickerPopup = ({ messageId, onClose }) => {
   const [customEmoji, setCustomEmoji] = useState("");
-  const { getAuthHeader } = useContext(UserContext);
+  const { getAuthHeader, user } = useContext(UserContext);
 
   const sendReaction = async (emoji) => {
     try {
@@ -20,6 +19,19 @@ const EmojiPickerPopup = ({ messageId, onClose }) => {
       onClose();
     } catch (err) {
       console.error("Failed to send reaction", err);
+    }
+  };
+
+  const removeReaction = async () => {
+    try {
+      await axios.patch(
+        `/chat/message/react/${messageId}`,
+        { emoji: "__UNREACT__" },
+        getAuthHeader()
+      );
+      onClose();
+    } catch (err) {
+      console.error("Failed to remove reaction", err);
     }
   };
 
@@ -35,26 +47,34 @@ const EmojiPickerPopup = ({ messageId, onClose }) => {
             {emoji}
           </button>
         ))}
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (customEmoji.trim()) sendReaction(customEmoji.trim());
-          }}
-          className="flex items-center gap-1 mt-1"
-        >
-          <input
-            type="text"
-            value={customEmoji}
-            onChange={(e) => setCustomEmoji(e.target.value)}
-            placeholder="+ Emoji"
-            maxLength={2}
-            className="w-10 h-8 text-center border rounded text-lg"
-          />
-          <button type="submit" className="text-sm text-blue-600 font-medium">
-            Add
-          </button>
-        </form>
       </div>
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (customEmoji.trim()) sendReaction(customEmoji.trim());
+        }}
+        className="flex items-center gap-1 mt-1"
+      >
+        <input
+          type="text"
+          value={customEmoji}
+          onChange={(e) => setCustomEmoji(e.target.value)}
+          placeholder="+ Emoji"
+          maxLength={2}
+          className="w-10 h-8 text-center border rounded text-lg"
+        />
+        <button type="submit" className="text-sm text-blue-600 font-medium">
+          Add
+        </button>
+      </form>
+
+      <button
+        onClick={removeReaction}
+        className="text-xs text-gray-500 hover:text-red-600 mt-2"
+      >
+        ❌ Remove Reaction
+      </button>
     </div>
   );
 };
