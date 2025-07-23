@@ -3,22 +3,24 @@ import EmojiPickerPopup from "./EmojiPickerPopup";
 import { UserContext } from "../contexts/UserContext";
 import axios from "../components/api";
 import { toast } from "react-toastify";
+
 const MessageBubble = ({ message, isOwn, isPending, failed }) => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const { getAuthHeader, user } = useContext(UserContext);
-  const userReaction = message.reactions?.find(r => r.userId === user.id); 
+  const userReaction = message.reactions?.find(r => r.userId === user.id);
 
   const handleReactionClick = () => setShowEmojiPicker(true);
+
   const handleDeleteMessage = async () => {
     if (!window.confirm("Are you sure you want to delete this message?")) return;
     try {
-      
       await axios.delete(`/chat/message/delete-message/${message._id}`, getAuthHeader());
       toast.success("Message deleted");
     } catch (err) {
       console.error("❌ Error deleting message", err);
     }
   };
+
   const handleSelectEmoji = async (emoji) => {
     setShowEmojiPicker(false);
     try {
@@ -44,7 +46,7 @@ const MessageBubble = ({ message, isOwn, isPending, failed }) => {
               onClick={handleReactionClick}
               className="ml-2 text-gray-500 hover:text-black text-sm"
             >
-              {isOwn? "": userReaction ? userReaction.emoji : "React"}
+              {isOwn ? "" : "React"}
             </button>
             {isOwn && !isPending && !failed && (
               <button
@@ -57,12 +59,17 @@ const MessageBubble = ({ message, isOwn, isPending, failed }) => {
           </div>
         </div>
 
-        {/* Reactions row (like WhatsApp) */}
         {message.reactions?.length > 0 && (
-          <div className="mt-1 flex gap-1 px-2">
-            {message.reactions.map((r, index) => (
-              <span key={index} className="text-xl">{r.emoji}</span>
-            ))}
+          <div className="mt-1 flex gap-2 px-2">
+            {[...new Map(message.reactions.map(r => [r.emoji, r])).values()].map((r, index) => {
+              const count = message.reactions.filter(x => x.emoji === r.emoji).length;
+              return (
+                <div key={index} className="flex items-center gap-1 text-xl">
+                  <span>{r.emoji}</span>
+                  {count > 1 && <span className="text-xs text-gray-500">{count}</span>}
+                </div>
+              );
+            })}
           </div>
         )}
 

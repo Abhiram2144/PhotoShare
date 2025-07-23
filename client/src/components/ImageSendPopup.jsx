@@ -29,7 +29,7 @@ const ImageSendPopup = ({ onSend, onCancel, toUsername }) => {
           <img
             src={URL.createObjectURL(selectedImage)}
             alt="preview"
-            className="max-w-64 max-h-64  rounded"
+            className="max-w-64 max-h-64 rounded"
           />
         )}
 

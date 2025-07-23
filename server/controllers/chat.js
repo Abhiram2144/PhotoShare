@@ -77,7 +77,7 @@ const deleteMessage = async (req, res) => {
 
     if (message.imageId) {
       await imagekit.deleteFile(message.imageId);
-      console.log("Deleted image:", message.imageId);
+      // console.log("Deleted image:", message.imageId);
     }
 
     await Message.findByIdAndDelete(messageId);
@@ -118,25 +118,39 @@ const reactToMessage = async (req, res) => {
   const { emoji } = req.body;
   const userId = req.userId;
 
-  if (!emoji || !messageId) {
-    return res.status(400).json({ error: "Missing emoji or messageId" });
+  if (!messageId) {
+    return res.status(400).json({ error: "Missing messageId" });
   }
 
   try {
     const message = await Message.findById(messageId);
     if (!message) return res.status(404).json({ error: "Message not found" });
 
-    // Replace existing reaction from the user
-    const existingIndex = message.reactions.findIndex(r => r.userId.toString() === userId);
-    if (existingIndex !== -1) {
-      message.reactions[existingIndex].emoji = emoji;
+    const existingIndex = message.reactions.findIndex(
+      (r) => r.userId.toString() === userId
+    );
+
+    let updated = false;
+
+    if (emoji === "__UNREACT__") {
+      if (existingIndex !== -1) {
+        message.reactions.splice(existingIndex, 1);
+        updated = true;
+      }
     } else {
-      message.reactions.push({ userId, emoji });
+      if (existingIndex !== -1) {
+        message.reactions[existingIndex].emoji = emoji;
+      } else {
+        message.reactions.push({ userId, emoji });
+      }
+      updated = true;
     }
+
+    if (!updated) return res.json({ message }); // no changes, no broadcast
 
     await message.save();
 
-    // Emit update to chat room
+    // Broadcast updated message to room
     const io = req.app.get("io");
     io.to(message.chat.toString()).emit("message_reacted", { message });
 
