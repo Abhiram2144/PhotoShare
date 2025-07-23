@@ -15,7 +15,7 @@ const server = http.createServer(app);
 // === SOCKET.IO SETUP ===
 const io = socketIo(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: process.env.CLIENT_URL,
     methods: ["GET", "POST", "DELETE", "PUT", "PATCH"],
     credentials: true,
   },
@@ -102,7 +102,7 @@ io.on("connection", (socket) => {
 });
 
 // === MIDDLEWARES ===
-app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
+app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
 app.use(express.json());
 
 // Inject IO to request object for route-level access (already good)
