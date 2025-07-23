@@ -16,10 +16,12 @@ const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
     origin: process.env.CLIENT_URL,
-    methods: ["GET", "POST", "DELETE", "PUT", "PATCH"],
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     credentials: true,
   },
+  transports: ["websocket"], // 💡 optional but often necessary
 });
+
 
 const connectedUsers = new Map();
 

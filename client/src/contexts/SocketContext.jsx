@@ -9,9 +9,13 @@ export const SocketProvider = ({ children }) => {
   const socketRef = useRef(null);
   const [connected, setConnected] = useState(false);
 
+
   useEffect(() => {
     if (user && !socketRef.current) {
-      socketRef.current = io(`${import.meta.env.VITE_BACKEND_URL}`);
+      socketRef.current = io(`${import.meta.env.VITE_BACKEND_URL}`, {
+        transports: ["websocket"], // Add this here too for safety
+        withCredentials: true
+      });
 
       socketRef.current.on("connect", () => {
         // console.log("🔌 Socket connected:", socketRef.current.id);
