@@ -45,7 +45,7 @@ const sendMessage = async (req, res) => {
       sender,
       content: uploadedImage.url,
       caption,
-      imageId: uploadedImage.fileId,
+      imageId: uploadedImage.fileId, // getting stored fine
     });
 
     newMessage = await newMessage.populate("sender", "username profileImage");
@@ -60,6 +60,42 @@ const sendMessage = async (req, res) => {
   }
 };
 
+// delete a message
+const deleteMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const userId = req.userId;
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ message: "Message not found" });
+    }
+    // console.log("Came till here")
+    if (message.sender.toString() !== userId) {
+      return res.status(403).json({ message: "You can only delete your own messages" });
+    }
+
+    if (message.imageId) {
+      await imagekit.deleteFile(message.imageId);
+      console.log("Deleted image:", message.imageId);
+    }
+
+    await Message.findByIdAndDelete(messageId);
+
+    // Optional: Notify the other user via socket (if you track chat rooms/users)
+    const io = req.app.get("io");
+    io.to(message.chat.toString()).emit("message_deleted", {
+      messageId,
+      chatId: message.chat.toString(),
+    });
+
+    res.json({ message: "Message deleted successfully" });
+
+  } catch (err) {
+    console.error("💥 Error deleting message", err);
+    res.status(500).json({ message: "Failed to delete message", error: err.message });
+  }
+};
 
 // === 3. Get All Messages in a Chat ===
 const getAllMessages = async (req, res) => {
@@ -112,41 +148,6 @@ const reactToMessage = async (req, res) => {
 };
 
 
-// delete a message
-const deleteMessage = async (req, res) => {
-  try {
-    const { messageId } = req.params;
-    const userId = req.userId;
-
-    const message = await Message.findById(messageId);
-    if (!message) {
-      return res.status(404).json({ message: "Message not found" });
-    }
-    console.log("Came till here")
-    if (message.sender.toString() !== userId) {
-      return res.status(403).json({ message: "You can only delete your own messages" });
-    }
-
-    if (message.imageId) {
-      await imagekit.deleteFile(message.imageId);
-    }
-
-    await Message.findByIdAndDelete(messageId);
-
-    // Optional: Notify the other user via socket (if you track chat rooms/users)
-    const io = req.app.get("io");
-    io.to(message.chat.toString()).emit("message_deleted", {
-      messageId,
-      chatId: message.chat.toString(),
-    });
-
-    res.json({ message: "Message deleted successfully" });
-
-  } catch (err) {
-    console.error("💥 Error deleting message", err);
-    res.status(500).json({ message: "Failed to delete message", error: err.message });
-  }
-};
 
 
 // In chatController.js

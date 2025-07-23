@@ -32,6 +32,12 @@ const ChatRoom = () => {
     }, [loading, messages]);
 
     useEffect(() => {
+        if (socket && chatId) {
+            socket.emit("join_chat", chatId);
+        }
+    }, [socket, chatId]);
+
+    useEffect(() => {
         if (!socket || !chatId) return;
 
         const handleReaction = ({ message }) => {
@@ -47,13 +53,15 @@ const ChatRoom = () => {
     useEffect(() => {
         if (!socket || !chatId) return;
 
-        const handleDeletedMessage = ({ messageId }) => {
+        const handleDeletedMessage = ({ messageId, chatId: deletedChatId }) => {
+            if (deletedChatId !== chatId) return;
             setMessages(prev => prev.filter(m => m._id !== messageId));
         };
 
         socket.on("message_deleted", handleDeletedMessage);
         return () => socket.off("message_deleted", handleDeletedMessage);
     }, [socket, chatId]);
+
 
     useEffect(() => {
         const fetchChat = async () => {
@@ -82,11 +90,7 @@ const ChatRoom = () => {
         fetchChat();
     }, [friendId]);
 
-    useEffect(() => {
-        if (socket && chatId) {
-            socket.emit("join_chat", chatId);
-        }
-    }, [socket, chatId]);
+
 
     useEffect(() => {
         if (!socket || !chatId) return;
