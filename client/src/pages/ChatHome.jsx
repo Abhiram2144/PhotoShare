@@ -27,7 +27,7 @@ const ChatHome = () => {
         const [friendsRes, chatsRes, pendingRes] = await Promise.all([
           axios.get("/relations/friends", getAuthHeader()),
           axios.get("/chat/recent", getAuthHeader()),
-          axios.get(`${import.meta.env.VITE_BACKEND_URL}/relations/pending-requests`, getAuthHeader()),
+          axios.get(`relations/pending-requests`, getAuthHeader()),
         ]);
 
         setFriends(friendsRes.data.friends || []);
