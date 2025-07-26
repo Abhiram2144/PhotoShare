@@ -113,9 +113,9 @@ app.use((req, res, next) => {
 app.set("io", io);
 
 // === ROUTES ===
-app.use("/api/auth", authrouter);
-app.use("/api/relations", relationRouter);
-app.use("/api/chat", chatRouter);
+app.use("/auth", authrouter);
+app.use("/relations", relationRouter);
+app.use("/chat", chatRouter);
 
 // === ROOT ROUTE ===
 app.get("/", (req, res) => {
