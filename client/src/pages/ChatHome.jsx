@@ -81,13 +81,18 @@ const ChatHome = () => {
     };
   }, [socket, user?.id]);
 
+  // REPLACE the existing getFriendChatData and filteredFriends logic with:
+
   const getFriendChatData = (friend) => {
     const chat = recentChats.find((c) => c.friend._id === friend._id);
-    if (!chat) return { label: "🆕 New Friend", time: null };
 
-    const message = chat.latestMessage;
-    const preview =  (message ? "📷 Image" : "Start chatting!");
-    const time = new Date(chat.updatedAt).toLocaleTimeString([], {
+      console.log(chat)
+    if (!chat || !chat.latestMessage || !chat.latestMessage.content) {
+      return { label: "Start chatting!", time: null };
+    }
+
+    const preview = "📷 Image"; // You can later switch this to caption preview if needed
+    const time = new Date(chat.latestMessage.createdAt).toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
       year: "numeric",
@@ -95,12 +100,26 @@ const ChatHome = () => {
       day: "numeric",
     });
 
-    return { label: preview, time };
+    return { label: preview, time, updatedAt: chat.updatedAt };
   };
 
-  const filteredFriends = friends.filter((friend) =>
-    friend.username.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+
+  // Sort by recent chat timestamps (if exists), others go last
+  const sortedFilteredFriends = [...friends]
+    .filter((friend) =>
+      friend.username.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => {
+      const aChat = recentChats.find((c) => c.friend._id === a._id);
+      const bChat = recentChats.find((c) => c.friend._id === b._id);
+
+      if (!aChat && !bChat) return 0;
+      if (!aChat) return 1;
+      if (!bChat) return -1;
+
+      return new Date(bChat.updatedAt) - new Date(aChat.updatedAt);
+    });
+
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
@@ -174,11 +193,11 @@ const ChatHome = () => {
       <div className="flex-grow px-4 py-4 overflow-y-auto">
         {loading ? (
           <p className="text-center text-gray-500">Loading chats...</p>
-        ) : filteredFriends.length === 0 ? (
+        ) : sortedFilteredFriends.length === 0 ? (
           <p className="text-center text-gray-500">No friends found.</p>
         ) : (
           <div className="space-y-4">
-            {filteredFriends.map((friend) => {
+            {sortedFilteredFriends.map((friend) => {
               const { label, time } = getFriendChatData(friend);
 
               return (

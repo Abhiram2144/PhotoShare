@@ -24,7 +24,7 @@ const accessChat = async (req, res) => {
   res.status(200).json({ success: true, chat });
 };
 
-// === 2. Send Message (image + caption) ===
+// send message
 const sendMessage = async (req, res) => {
   try {
     const { chatId, caption } = req.body;
@@ -45,12 +45,18 @@ const sendMessage = async (req, res) => {
       sender,
       content: uploadedImage.url,
       caption,
-      imageId: uploadedImage.fileId, // getting stored fine
+      imageId: uploadedImage.fileId,
     });
 
     newMessage = await newMessage.populate("sender", "username profileImage");
 
-    // Emit to all users in chat room
+    // ✅ Update latestMessage in Chat
+    await Chat.findByIdAndUpdate(chatId, {
+      latestMessage: newMessage._id,
+      updatedAt: new Date(),
+    });
+
+    // 🔁 Emit real-time event
     req.app.get("io").to(chatId).emit("new_message", newMessage);
 
     res.status(201).json({ success: true, message: newMessage });
@@ -59,6 +65,7 @@ const sendMessage = async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to send message", error: err.message });
   }
 };
+
 
 // delete a message
 const deleteMessage = async (req, res) => {
@@ -161,16 +168,14 @@ const reactToMessage = async (req, res) => {
   }
 };
 
-
-
-
-// In chatController.js
+// get recent chats
 const getRecentChats = async (req, res) => {
   const chats = await Chat.find({ participants: req.userId })
     .populate("participants", "username profileImage")
     .populate({
       path: "latestMessage",
-      populate: { path: "sender", select: "username profileImage" }
+      select: "content caption createdAt", // ✅ ADD THIS
+      populate: { path: "sender", select: "username profileImage" },
     })
     .sort({ updatedAt: -1 });
 
@@ -180,7 +185,7 @@ const getRecentChats = async (req, res) => {
       _id: chat._id,
       friend: other,
       latestMessage: chat.latestMessage,
-      updatedAt: chat.updatedAt
+      updatedAt: chat.updatedAt,
     };
   });
 
