@@ -86,7 +86,7 @@ const ChatHome = () => {
   const getFriendChatData = (friend) => {
     const chat = recentChats.find((c) => c.friend._id === friend._id);
 
-      console.log(chat)
+      // console.log(chat)
     if (!chat || !chat.latestMessage || !chat.latestMessage.content) {
       return { label: "Start chatting!", time: null };
     }

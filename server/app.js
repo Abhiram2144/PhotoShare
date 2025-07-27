@@ -25,12 +25,12 @@ const connectedUsers = new Map();
 
 
 io.on("connection", (socket) => {
-  console.log("🟢 New client connected:", socket.id);
+  // console.log("🟢 New client connected:", socket.id);
 
   // Log all events
-  socket.onAny((event, ...args) => {
-    console.log(`⚡️ Received event: ${event}`, args);
-  });
+  // socket.onAny((event, ...args) => {
+  //   console.log(`⚡️ Received event: ${event}`, args);
+  // });
 
 
   //  In a real-world app, never trust client-sent IDs. Users can impersonate others. Use JWT from client and verify it before joining room:
@@ -52,7 +52,7 @@ io.on("connection", (socket) => {
   socket.on("register", (userId) => {
     socket.join(userId);
     connectedUsers.set(userId, socket.id);
-    console.log(`📥 User ${userId} joined their socket room`);
+    // console.log(`📥 User ${userId} joined their socket room`);
   });
 
   // Friend request sent
@@ -71,14 +71,14 @@ io.on("connection", (socket) => {
 
   // Image send (already in your code)
   socket.on("send_image", ({ to, image }) => {
-    console.log(`📤 Sending image to ${to}`);
+    // console.log(`📤 Sending image to ${to}`);
     io.to(to).emit("receive_image", { from: socket.id, image });
   });
 
   // Chat
   socket.on("join_chat", (chatId) => {
     socket.join(chatId);
-    console.log(`🧃 Socket ${socket.id} joined chat room ${chatId}`);
+    // console.log(`🧃 Socket ${socket.id} joined chat room ${chatId}`);
   });
 
   socket.on("send_chat_message", ({ chatId, message }) => {
@@ -91,7 +91,7 @@ io.on("connection", (socket) => {
 
   // Disconnect logic
   socket.on("disconnect", () => {
-    console.log("🔴 Client disconnected:", socket.id);
+    // console.log("🔴 Client disconnected:", socket.id);
     for (let [uid, sid] of connectedUsers.entries()) {
       if (sid === socket.id) {
         connectedUsers.delete(uid);
@@ -124,7 +124,7 @@ app.get("/", (req, res) => {
 
 // === DB + SERVER START ===
 server.listen(8000, () => {
-  console.log("🚀 Server running on port 8000");
+  // console.log("🚀 Server running on port 8000");
   mongoose.connect(`mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.ucc4fkx.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`)
     .then(() => console.log("✅ Connected to MongoDB"))
     .catch((err) => console.error("❌ MongoDB connection error:", err));
