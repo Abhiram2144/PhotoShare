@@ -13,18 +13,17 @@ const Navbar = () => {
 
   return (
     <div
-      className={`w-full flex justify-between items-center px-4 py-4 z-20 ${
-        isHomePage
+      className={`w-full flex justify-between items-center px-4 py-4 z-20 ${isHomePage
           ? "absolute top-0 left-0 bg-transparent"
           : "bg-black"
-      }`}
+        }`}
     >
       {/* Brand */}
       <h1
         className="text-xl font-bold text-white cursor-pointer"
         onClick={() => navigate("/")}
       >
-        <span className="text-white">Photo </span>
+        <span className={`${isHomePage ? "text-white md:text-black" : "text-white"}`}>Photo </span>
         <span style={{ color: "#803894" }}>Share</span>
       </h1>
 
