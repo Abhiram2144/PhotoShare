@@ -1,4 +1,4 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import EmojiPickerPopup from "./EmojiPickerPopup";
 import { UserContext } from "../contexts/UserContext";
 import axios from "../components/api";
@@ -7,7 +7,8 @@ import { toast } from "react-toastify";
 const MessageBubble = ({ message, isOwn, isPending, failed }) => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const { getAuthHeader, user } = useContext(UserContext);
-  const userReaction = message.reactions?.find(r => r.userId === user.id);
+  const userReaction = message.reactions?.find((r) => r.userId === user.id);
+  const [decryptedUrl, setDecryptedUrl] = useState(null);
 
   const handleReactionClick = () => setShowEmojiPicker(true);
 
@@ -30,16 +31,53 @@ const MessageBubble = ({ message, isOwn, isPending, failed }) => {
     }
   };
 
+  useEffect(() => {
+    const decryptImage = async () => {
+      try {
+        const response = await fetch(message.content);
+        const encryptedData = await response.arrayBuffer();
+
+        const rawKey = new TextEncoder().encode("12345678901234567890123456789012"); // 32 bytes
+        const key = await window.crypto.subtle.importKey("raw", rawKey, "AES-GCM", false, ["decrypt"]);
+
+        const iv = Uint8Array.from(atob(message.nonce), (c) => c.charCodeAt(0));
+        const decrypted = await window.crypto.subtle.decrypt(
+          { name: "AES-GCM", iv },
+          key,
+          encryptedData
+        );
+
+        const blob = new Blob([decrypted]);
+        const objectURL = URL.createObjectURL(blob);
+        setDecryptedUrl(objectURL);
+      } catch (error) {
+        console.error("❌ Error decrypting image", error);
+        setDecryptedUrl(null); // fallback
+      }
+    };
+
+    if (message.content && message.nonce && !isPending && !failed) {
+      decryptImage();
+    } else if (isPending || failed) {
+      setDecryptedUrl(message.content); // Local preview
+    }
+  }, [message]);
+
   return (
     <div className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
       <div className="relative">
         <div className={`p-2 rounded-lg ${isOwn ? "bg-blue-100" : "bg-gray-100"} max-w-xs`}>
-          <img src={message.content} alt="sent" className="rounded-lg mb-1 max-w-full" />
+          {decryptedUrl && (
+            <img src={decryptedUrl} alt="sent" className="rounded-lg mb-1 max-w-full" />
+          )}
           {message.caption && <p className="text-sm mt-1">{message.caption}</p>}
 
           <div className="text-xs mt-2 flex items-center justify-between">
             <span className="text-gray-400">
-              {new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              {new Date(message.createdAt).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
               {failed && " ❌"}
             </span>
             <button
@@ -61,8 +99,8 @@ const MessageBubble = ({ message, isOwn, isPending, failed }) => {
 
         {message.reactions?.length > 0 && (
           <div className="mt-1 flex gap-2 px-2">
-            {[...new Map(message.reactions.map(r => [r.emoji, r])).values()].map((r, index) => {
-              const count = message.reactions.filter(x => x.emoji === r.emoji).length;
+            {[...new Map(message.reactions.map((r) => [r.emoji, r])).values()].map((r, index) => {
+              const count = message.reactions.filter((x) => x.emoji === r.emoji).length;
               return (
                 <div key={index} className="flex items-center gap-1 text-xl">
                   <span>{r.emoji}</span>

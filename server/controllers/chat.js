@@ -23,16 +23,14 @@ const accessChat = async (req, res) => {
 
   res.status(200).json({ success: true, chat });
 };
-
-// send message
 const sendMessage = async (req, res) => {
   try {
-    const { chatId, caption } = req.body;
+    const { chatId, caption, nonce } = req.body;
     const sender = req.userId;
     const file = req.file;
 
-    if (!chatId || !file) {
-      return res.status(400).json({ success: false, message: "chatId and image file are required" });
+    if (!chatId || !file || !nonce) {
+      return res.status(400).json({ success: false, message: "Required fields missing" });
     }
 
     const uploadedImage = await imagekit.upload({
@@ -46,17 +44,16 @@ const sendMessage = async (req, res) => {
       content: uploadedImage.url,
       caption,
       imageId: uploadedImage.fileId,
+      nonce
     });
 
     newMessage = await newMessage.populate("sender", "username profileImage");
 
-    // ✅ Update latestMessage in Chat
     await Chat.findByIdAndUpdate(chatId, {
       latestMessage: newMessage._id,
       updatedAt: new Date(),
     });
 
-    // 🔁 Emit real-time event
     req.app.get("io").to(chatId).emit("new_message", newMessage);
 
     res.status(201).json({ success: true, message: newMessage });
@@ -65,6 +62,7 @@ const sendMessage = async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to send message", error: err.message });
   }
 };
+
 
 
 // delete a message
