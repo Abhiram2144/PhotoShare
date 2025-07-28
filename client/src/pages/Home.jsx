@@ -1,41 +1,41 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 
 const Home = () => {
-  const navigate = useNavigate();
-
   return (
-    <div className="min-h-screen flex flex-col justify-between items-center bg-white px-4 py-6">
-      
-      {/* Header */}
-      {/* <div className="w-full flex justify-between items-center">
-        <h1 className="text-2xl font-semibold text-gray-800">Photo share</h1>
-        <button 
-          onClick={() => navigate("/login")}
-          className="text-sm font-medium text-blue-600 hover:underline"
-        >
-          Sign in
-        </button>
-      </div> */}
+    <div className="relative min-h-screen w-full overflow-hidden flex flex-col items-center justify-center md:bg-white">
 
-      <Navbar/>
+      {/* Mobile-only background */}
+      <div className="absolute inset-0 w-full h-full md:hidden">
+        <img
+          src="/mobile-background.jpg"
+          alt="Background"
+          className="w-full h-full object-cover"
+        />
+      </div>
 
-      {/* Main Content */}
-      <div className="flex flex-col items-center mt-20">
-        <div className="bg-gray-200 w-64 h-64 flex flex-col justify-center items-center rounded-xl shadow-md">
-          <p className="text-xl font-semibold text-center px-4">Only For<br />Sweet Hearts</p>
-          <div className="mt-2 text-2xl">❤️‍🔥 ❤️‍🔥</div>
+      {/* Navbar */}
+      <Navbar />
+
+      {/* Main content */}
+      <div className="z-10 text-center px-6 pt-28 pb-36">
+        <h1 className="text-white text-4xl font-semibold leading-snug">
+          Only For <br /> Sweet Hearts
+        </h1>
+        <div className="mt-3 text-4xl">🤍 💜</div>
+
+        <div className="mt-6 bg-white/15 text-white text-sm rounded-md px-4 py-3 max-w-xs mx-auto backdrop-blur-sm">
+          Media stored in a most secure way. <br /> Just for you.
         </div>
       </div>
 
-      {/* Footer Disclaimer */}
-      <div className="text-xs text-center text-gray-600 mt-16 px-4">
-        <p className="bg-gray-100 p-3 rounded-md">
-          Disclaimer: None of these photos can be viewed by any third person, 
-          cause these images are directly encoded with my own complex algorithm before storing. 
-          For example, a pic of your fat friend may look like a cow when stored :)
-        </p>
+      {/* Asteroid at Bottom Left (only top-left quadrant visible) */}
+      <div className="absolute bottom-0 left-0 z-0 h-40 md:hidden">
+        <img
+          src="/asteroid.png"
+          alt="Asteroid"
+          className="w-80 h-80 -translate-x-20 -translate-y-20"
+        />
       </div>
 
     </div>

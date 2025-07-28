@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useState, useRef } from "react";
 import EmojiPickerPopup from "./EmojiPickerPopup";
 import { UserContext } from "../contexts/UserContext";
 import axios from "../components/api";
@@ -6,11 +6,21 @@ import { toast } from "react-toastify";
 
 const MessageBubble = ({ message, isOwn, isPending, failed }) => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const { getAuthHeader, user } = useContext(UserContext);
-  const userReaction = message.reactions?.find((r) => r.userId === user.id);
+  const [isFlipped, setIsFlipped] = useState(false);
   const [decryptedUrl, setDecryptedUrl] = useState(null);
+  const { getAuthHeader, user } = useContext(UserContext);
+  const messageRef = useRef(null);
 
-  const handleReactionClick = () => setShowEmojiPicker(true);
+  const userReaction = message.reactions?.find((r) => r.userId === user.id);
+
+  const handleReactionClick = () => {
+    if (messageRef.current) {
+      const rect = messageRef.current.getBoundingClientRect();
+      const windowHeight = window.innerHeight;
+      setIsFlipped(rect.top < 200); // flip down if near top
+    }
+    setShowEmojiPicker(true);
+  };
 
   const handleDeleteMessage = async () => {
     if (!window.confirm("Are you sure you want to delete this message?")) return;
@@ -52,19 +62,19 @@ const MessageBubble = ({ message, isOwn, isPending, failed }) => {
         setDecryptedUrl(objectURL);
       } catch (error) {
         console.error("❌ Error decrypting image", error);
-        setDecryptedUrl(null); // fallback
+        setDecryptedUrl(null);
       }
     };
 
     if (message.content && message.nonce && !isPending && !failed) {
       decryptImage();
     } else if (isPending || failed) {
-      setDecryptedUrl(message.content); // Local preview
+      setDecryptedUrl(message.content);
     }
   }, [message]);
 
   return (
-    <div className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
+    <div className={`flex ${isOwn ? "justify-end" : "justify-start"}`} ref={messageRef}>
       <div className="relative">
         <div className={`p-2 rounded-lg ${isOwn ? "bg-blue-100" : "bg-gray-100"} max-w-xs`}>
           {decryptedUrl && (
@@ -112,7 +122,7 @@ const MessageBubble = ({ message, isOwn, isPending, failed }) => {
         )}
 
         {showEmojiPicker && (
-          <div className="absolute bottom-full left-0 z-50">
+          <div className={`absolute ${isFlipped ? "top-full" : "bottom-full"} left-0 z-50 mt-1`}>
             <EmojiPickerPopup
               messageId={message._id}
               onSelect={handleSelectEmoji}
